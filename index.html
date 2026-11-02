@@ -1,0 +1,1044 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Downtown Park Pack</title>
+<meta name="description" content="See which downtown Boston dogs are heading to which park, and find a time that works for the whole pack.">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2F6B45">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Park Pack">
+<style>
+  /* Hosted-only reset; the artifact build supplies its own. */
+  :root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+  body{margin:0;font:14px system-ui,sans-serif}
+  img{max-width:100%}
+  [hidden]{display:none!important}
+</style>
+<script src="firebase-config.js"></script>
+</head>
+<body>
+<!-- APP START -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: phone-first single column, pocket map up top, bottom tab bar like a native app. */
+:root{
+  --bg:#EEF2EC; --surface:#FFFFFF; --ink:#17251D; --muted:#5B6B60; --line:#D3DDD4;
+  --park:#2F6B45; --on-park:#FFFFFF; --park-soft:#D6E8D9;
+  --water:#C3D9E4; --land:#E5EBE2; --street:#D6DDD3;
+  --ball:#D4EC3F; --on-ball:#1E2A0A; --live:#C2412D;
+  --shadow:0 1px 2px rgba(23,37,29,.08),0 6px 18px rgba(23,37,29,.08);
+  --f-display:"Bricolage Grotesque","Arial Rounded MT Bold",system-ui,sans-serif;
+  --f-body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F1813; --surface:#17231B; --ink:#E4EEE5; --muted:#93A597; --line:#2A3A2F;
+  --park:#74C38B; --on-park:#0F1813; --park-soft:#21402B;
+  --water:#1A3240; --land:#16211A; --street:#223027;
+  --ball:#D4EC3F; --on-ball:#1E2A0A; --live:#EE7D63;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.25); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F1813; --surface:#17231B; --ink:#E4EEE5; --muted:#93A597; --line:#2A3A2F;
+  --park:#74C38B; --on-park:#0F1813; --park-soft:#21402B;
+  --water:#1A3240; --land:#16211A; --street:#223027;
+  --ball:#D4EC3F; --on-ball:#1E2A0A; --live:#EE7D63;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.25); color-scheme:dark}
+
+html,body{background:var(--bg)}
+body{color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45;-webkit-tap-highlight-color:transparent}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.app{max-width:640px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px 120px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.1}
+h2{font-size:24px;font-weight:800;letter-spacing:-.01em}
+h3{font-size:17px;font-weight:600}
+p{margin:0}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--park);outline-offset:2px}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.label{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.num{font-variant-numeric:tabular-nums}
+
+/* header */
+.top{display:flex;align-items:center;gap:12px;padding-block:6px 14px}
+.brand{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.brand svg{flex:none}
+.brand h1{font-size:22px;font-weight:800;letter-spacing:-.02em}
+.brand .sub{font-size:12px;color:var(--muted)}
+.status{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.dot.live{background:var(--park);box-shadow:0 0 0 3px var(--park-soft)}
+.installbtn{border:1px solid var(--park);background:transparent;color:var(--park);border-radius:999px;padding:5px 12px;font-size:13px;font-weight:600}
+
+.view{display:flex;flex-direction:column;gap:14px}
+.summary{font-size:15px}
+.summary b{font-weight:700}
+.exbar{display:flex;gap:10px;align-items:center;justify-content:space-between;background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:9px 12px;font-size:13px;color:var(--muted)}
+.linkbtn{background:none;border:0;color:var(--park);font-weight:600;padding:4px 0;white-space:nowrap}
+
+/* chips */
+.chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;white-space:nowrap}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip .n{opacity:.65;font-weight:500;margin-left:4px}
+
+/* map */
+.mapwrap{position:relative;background:var(--land);border-radius:18px;overflow:hidden;border:1px solid var(--line)}
+#map{display:block;width:100%;height:auto;max-width:100%;touch-action:manipulation}
+#map .water{fill:var(--water)}
+#map .grass{fill:var(--park-soft);stroke:var(--park);stroke-opacity:.35;stroke-width:1}
+#map .street{stroke:var(--street);stroke-width:5;fill:none;stroke-linecap:round}
+#map .greenway{stroke:var(--park-soft);stroke-width:7;fill:none;stroke-linecap:round}
+#map .hood{fill:var(--muted);font:600 9px var(--f-body);letter-spacing:.14em;text-transform:uppercase;opacity:.7}
+#map .waterlbl{fill:var(--muted);font:italic 500 10px var(--f-body);opacity:.8}
+#map .pin{cursor:pointer}
+#map .pin .halo{fill:var(--park);opacity:.18}
+#map .pin .body{fill:var(--park);stroke:var(--surface);stroke-width:2.5}
+#map .pin.empty .body{fill:var(--surface);stroke:var(--park);stroke-width:2}
+#map .pin .count{fill:var(--on-park);font:800 12px var(--f-display);text-anchor:middle;dominant-baseline:central}
+#map .pin .name{fill:var(--ink);font:700 9.5px var(--f-body);text-anchor:middle;paint-order:stroke;stroke:var(--land);stroke-width:3px;stroke-linejoin:round}
+#map .pin .reg{fill:none;stroke:var(--park);stroke-width:1.5;stroke-dasharray:3 3}
+#map .pin.sel .body{fill:var(--ball);stroke:var(--ink)}
+#map .pin.sel .count{fill:var(--on-ball)}
+#map .pin .livering{fill:none;stroke:var(--live);stroke-width:2}
+@media (prefers-reduced-motion:no-preference){#map .pin .livering{animation:ping 2s ease-out infinite;transform-box:fill-box;transform-origin:center}}
+@keyframes ping{from{opacity:.9;transform:scale(1)}to{opacity:0;transform:scale(1.8)}}
+.maplegend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted);margin-top:-6px}
+.maplegend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px;vertical-align:-1px}
+
+.timebar{display:flex;align-items:center;gap:10px}
+.timebar input[type=range]{flex:1;min-width:0;accent-color:var(--park)}
+.timebar output{width:70px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+
+/* panels, lists */
+.panel{background:var(--surface);border-radius:16px;padding:14px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:10px}
+.panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.rows{display:flex;flex-direction:column}
+.row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line);min-width:0}
+.row:first-child{border-top:0}
+.row .grow{flex:1;min-width:0}
+.row .t{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;font-size:13px}
+.parkrow{width:100%;background:none;border:0;text-align:left;padding:9px 0}
+.bar{height:6px;border-radius:3px;background:var(--park-soft);overflow:hidden;margin-top:5px}
+.bar span{display:block;height:100%;background:var(--park)}
+.livetag{color:var(--live);font-weight:700;font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.note{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+
+/* avatars */
+.av{--c:#C9A36B;--t:#1E1A14;flex:none;width:34px;height:34px;border-radius:50%;background:var(--c);color:var(--t);display:inline-grid;place-items:center;font:800 15px var(--f-display);box-shadow:0 0 0 2px var(--surface);position:relative}
+.av.sm{width:26px;height:26px;font-size:12px}
+.av.lg{width:52px;height:52px;font-size:22px}
+.av.ex{outline:1.5px dashed var(--muted);outline-offset:2px}
+.stack{display:flex}
+.stack .av+.av{margin-left:-8px}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px;background:var(--park-soft);color:var(--ink);white-space:nowrap}
+.tag.learn{background:color-mix(in srgb,var(--ball) 45%,var(--surface))}
+.tag.ex{background:transparent;border:1px dashed var(--muted);color:var(--muted)}
+
+/* buttons */
+.btn{border:0;border-radius:12px;padding:11px 16px;font-weight:700;background:var(--park);color:var(--on-park)}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.ball{background:var(--ball);color:var(--on-ball)}
+.btn.sm{padding:7px 12px;font-size:13px;border-radius:10px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.iconbtn{background:none;border:0;color:var(--muted);padding:6px;border-radius:8px;font-size:13px;font-weight:600}
+
+.fab{position:fixed;right:max(16px,calc(50% - 304px),env(safe-area-inset-right,0px));bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:20;border:0;border-radius:999px;padding:14px 20px;background:var(--ball);color:var(--on-ball);font:800 16px var(--f-display);box-shadow:0 8px 24px rgba(23,37,29,.25);display:flex;align-items:center;gap:8px}
+
+/* tabs */
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px))}
+.tabs .in{max-width:640px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr)}
+.tab{background:none;border:0;padding:9px 0 10px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11.5px;font-weight:600;color:var(--muted)}
+.tab svg{width:22px;height:22px}
+.tab.on{color:var(--park)}
+
+/* plan grid */
+.seg{display:inline-grid;grid-template-columns:1fr 1fr;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:3px;align-self:flex-start}
+.seg button{border:0;background:none;border-radius:9px;padding:7px 14px;font-weight:700;font-size:13px;color:var(--muted)}
+.seg button.on{background:var(--ink);color:var(--bg)}
+.gridwrap{background:var(--surface);border-radius:16px;box-shadow:var(--shadow);padding:10px 10px 12px 4px;overflow-x:auto}
+.grid{display:grid;grid-template-columns:40px repeat(7,minmax(34px,1fr));user-select:none;-webkit-user-select:none;min-width:290px}
+.grid.paint{touch-action:none}
+.gh{font:700 12px var(--f-body);text-align:center;padding-bottom:6px;color:var(--muted)}
+.gh.today{color:var(--park)}
+.gt{font-size:10.5px;color:var(--muted);text-align:right;padding-right:6px;transform:translateY(-7px);font-variant-numeric:tabular-nums;height:15px}
+.cell{height:15px;border-left:1px solid var(--line);border-top:1px solid color-mix(in srgb,var(--line) 55%,transparent);background:var(--surface);cursor:pointer}
+.cell.hr{border-top-color:var(--line)}
+.cell.on{background:var(--park)}
+.cell.pick{outline:2px solid var(--ink);outline-offset:-2px}
+.cell.last{border-right:1px solid var(--line)}
+.heatkey{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.heatkey span.sw{display:inline-block;width:18px;height:12px;border-radius:3px;border:1px solid var(--line)}
+
+.best{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.best li{background:var(--surface);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow);display:flex;gap:12px;align-items:center}
+.best .when{font:800 16px var(--f-display)}
+.best .grow{flex:1;min-width:0}
+
+/* pack */
+.pack{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.dogcard{background:var(--surface);border-radius:16px;padding:14px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:10px;min-width:0}
+.dogcard .hd{display:flex;gap:12px;align-items:center}
+.dogcard h3{font-size:19px;font-weight:800}
+.tags{display:flex;flex-wrap:wrap;gap:6px}
+
+/* form */
+.form{display:flex;flex-direction:column;gap:14px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field>label,.field>.label{font-weight:600;font-size:13px}
+.input{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%;box-sizing:border-box}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.coats{display:flex;flex-wrap:wrap;gap:8px}
+.coats label{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;color:var(--muted);cursor:pointer}
+.coats input{position:absolute;opacity:0;pointer-events:none}
+.coats .sw{width:30px;height:30px;border-radius:50%;border:2px solid var(--line)}
+.coats input:checked+.sw{border-color:var(--ink);box-shadow:0 0 0 2px var(--surface) inset}
+.coats input:focus-visible+.sw{outline:2px solid var(--park);outline-offset:2px}
+.checks{display:flex;flex-wrap:wrap;gap:6px}
+.checks label{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:6px 11px;font-size:13px;cursor:pointer;background:var(--surface)}
+.checks input{accent-color:var(--park);margin:0}
+
+/* sheet */
+.scrim{position:fixed;inset:0;background:rgba(10,18,13,.45);z-index:40}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:41;background:var(--surface);border-radius:20px 20px 0 0;max-height:88vh;overflow-y:auto;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-top:8px}
+.sheet .in{max-width:600px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:4px auto 4px}
+.wrapchips{display:flex;flex-wrap:wrap;gap:6px}
+
+.toast{position:fixed;left:50%;transform:translateX(-50%);top:calc(12px + env(safe-area-inset-top,0px));z-index:50;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:600;font-size:14px;max-width:calc(100% - 48px);text-align:center;box-shadow:var(--shadow)}
+.empty{padding:18px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:14px}
+.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
+@media (min-width:700px){ .fab{bottom:calc(84px + env(safe-area-inset-bottom,0px))} }
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <svg width="38" height="38" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="var(--park)"/><g fill="var(--ball)"><ellipse cx="32" cy="40" rx="11" ry="9.5"/><ellipse cx="18.5" cy="27" rx="5" ry="6.2"/><ellipse cx="27" cy="19.5" rx="5" ry="6.5"/><ellipse cx="37" cy="19.5" rx="5" ry="6.5"/><ellipse cx="45.5" cy="27" rx="5" ry="6.2"/></g></svg>
+      <div style="min-width:0">
+        <h1>Park Pack</h1>
+        <div class="sub">Downtown Boston dogs</div>
+      </div>
+    </div>
+    <button class="installbtn" id="installBtn" hidden>Install</button>
+    <span class="status" id="status"><span class="dot"></span><span id="statusText">Connecting…</span></span>
+  </header>
+
+  <!-- MAP -->
+  <section class="view" id="v-map" aria-label="Map">
+    <p class="summary" id="summary">Loading the pack…</p>
+    <div class="exbar" id="exbar" hidden><span id="exText">Showing example dogs so you can see how it works. They aren't real.</span><button class="linkbtn" id="exHide">Hide</button></div>
+    <div class="chips" id="dayChips" role="tablist" aria-label="Day"></div>
+    <div class="mapwrap">
+      <svg id="map" viewBox="0 0 400 410" role="img" aria-label="Map of downtown Boston parks">
+        <path class="water" d="M0,0 L96,0 C93,38 88,70 72,100 C58,118 32,121 0,117 Z"/>
+        <path class="water" d="M334,0 L400,0 L400,150 L374,160 L354,172 L349,205 L348,330 L334,330 L336,205 L340,172 L352,150 L344,118 L339,84 L336,52 Z"/>
+        <path class="street" d="M0,250 L120,212 L196,214 L262,226 L338,232"/>
+        <path class="street" d="M196,150 L232,108 L262,70 L300,40 L325,0"/>
+        <path class="street" d="M196,214 L188,300 L180,410"/>
+        <path class="street" d="M100,157 L60,150 L0,148"/>
+        <path class="street" d="M120,212 L118,300 L112,410"/>
+        <path class="greenway" d="M334,64 C318,96 300,120 292,150 C286,176 284,196 280,214 C272,238 260,252 246,266"/>
+        <path class="grass" d="M181,133 L202,152 L193,215 L115,212 L109,156 Z"/>
+        <path class="grass" d="M107,157 L75,161 L77,213 L113,212 Z"/>
+        <path class="grass" d="M0,121 C30,124 56,121 72,106 L76,114 C60,130 32,134 0,132 Z"/>
+        <rect class="grass" x="270" y="144" width="18" height="15" rx="2"/>
+        <rect class="grass" x="140" y="349" width="22" height="16" rx="2"/>
+        <rect class="grass" x="326" y="60" width="16" height="16" rx="3"/>
+        <text class="waterlbl" x="10" y="40">Charles River</text>
+        <text class="waterlbl" x="396" y="40" text-anchor="end">Harbor</text>
+        <text class="waterlbl" x="340" y="352" text-anchor="middle">Fort Point Ch.</text>
+        <text class="hood" x="140" y="108">Beacon Hill</text>
+        <text class="hood" x="18" y="262">Back Bay</text>
+        <text class="hood" x="200" y="396" text-anchor="middle">South End</text>
+        <text class="hood" x="236" y="290" text-anchor="middle">Chinatown</text>
+        <text class="hood" x="250" y="126" text-anchor="middle">Fin. District</text>
+        <text class="hood" x="282" y="22" text-anchor="middle">North End</text>
+        <text class="hood" x="392" y="300" text-anchor="end">Seaport</text>
+        <g id="pins"></g>
+      </svg>
+    </div>
+    <div class="maplegend"><span><i style="background:var(--park)"></i>pinged</span><span><i style="background:var(--live)"></i>there now</span><span><i style="border:1.5px dashed var(--park)"></i>regulars (pick a time)</span></div>
+    <div class="timebar">
+      <button class="chip on" id="allDay">All day</button>
+      <input type="range" id="timeSlider" min="0" max="31" value="22" aria-label="Time of day">
+      <output id="timeOut" class="num">Any time</output>
+    </div>
+    <div class="panel" id="parkPanel"></div>
+  </section>
+
+  <!-- PLAN -->
+  <section class="view" id="v-plan" aria-label="Find a time" hidden>
+    <div>
+      <h2>Find a time</h2>
+      <p class="muted" id="planLede" style="margin-top:4px">Paint the times your dog is usually free. Everyone's weeks stack up so you can spot when the pack overlaps.</p>
+    </div>
+    <div class="seg" role="tablist"><button id="segMine" class="on">My week</button><button id="segGroup">Everyone</button></div>
+    <div id="groupTools" class="view" style="gap:8px" hidden>
+      <div class="label">Who's in</div>
+      <div class="chips" id="dogFilter"></div>
+      <div class="heatkey" id="heatKey"></div>
+    </div>
+    <div id="mineTools" class="small muted">Drag across squares to mark free time. Drag again to erase. Saves on its own.</div>
+    <div class="gridwrap"><div class="grid" id="grid"></div></div>
+    <div class="panel" id="cellInfo" hidden></div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <h3>Best times this week</h3>
+      <ol class="best" id="best"></ol>
+    </div>
+  </section>
+
+  <!-- PACK -->
+  <section class="view" id="v-pack" aria-label="The pack" hidden>
+    <div>
+      <h2>The pack</h2>
+      <p class="muted" style="margin-top:4px" id="packLede">Every dog on Park Pack, with where they're headed next.</p>
+    </div>
+    <div class="pack" id="packList"></div>
+  </section>
+
+  <!-- ME -->
+  <section class="view" id="v-me" aria-label="My dog" hidden>
+    <div>
+      <h2 id="meTitle">Your dog</h2>
+      <p class="muted" style="margin-top:4px">This is what other owners see on the map and in the pack.</p>
+    </div>
+    <div class="panel" id="installCard" hidden></div>
+    <form class="panel form" id="dogForm" autocomplete="off">
+      <div class="two">
+        <div class="field"><label for="f-name">Dog's name</label><input class="input" id="f-name" maxlength="24" required placeholder="Moose"></div>
+        <div class="field"><label for="f-breed">Breed</label><input class="input" id="f-breed" maxlength="32" placeholder="Lab mix"></div>
+      </div>
+      <div class="two">
+        <div class="field"><label for="f-size">Size</label>
+          <select class="input" id="f-size"><option value="S">Small (under 25 lb)</option><option value="M" selected>Medium (25–50 lb)</option><option value="L">Large (50 lb+)</option></select></div>
+        <div class="field"><label for="f-social">With other dogs</label>
+          <select class="input" id="f-social"><option value="learning">Still learning</option><option value="friendly" selected>Friendly</option><option value="party">Party animal</option></select></div>
+      </div>
+      <div class="field"><span class="label">Coat</span><div class="coats" id="coats"></div></div>
+      <div class="field"><label for="f-vibe">Good to know</label><input class="input" id="f-vibe" maxlength="80" placeholder="Loves fetch, shy with big dogs at first"></div>
+      <div class="field"><label for="f-owner">Your first name <span class="muted">(optional)</span></label><input class="input" id="f-owner" maxlength="24" placeholder="So people know who's at the other end of the leash"></div>
+      <div class="field"><span class="label">Usual parks</span><div class="checks" id="favParks"></div></div>
+      <button class="btn" type="submit" id="saveDog">Save</button>
+      <p class="small muted" id="formNote" hidden></p>
+    </form>
+    <div class="panel">
+      <div class="panel-head"><h3>Your upcoming pings</h3></div>
+      <div class="rows" id="myPings"></div>
+    </div>
+  </section>
+</div>
+
+<button class="fab" id="fab"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>Ping a park</button>
+
+<nav class="tabs" aria-label="Sections"><div class="in">
+  <button class="tab on" data-tab="map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>Map</button>
+  <button class="tab" data-tab="plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M7 14h3v3H7z" fill="currentColor"/></svg>Find a time</button>
+  <button class="tab" data-tab="pack"><svg viewBox="0 0 24 24" fill="currentColor"><ellipse cx="12" cy="15.5" rx="4.6" ry="4"/><ellipse cx="6.3" cy="10" rx="2.1" ry="2.6"/><ellipse cx="9.8" cy="6.8" rx="2.1" ry="2.7"/><ellipse cx="14.2" cy="6.8" rx="2.1" ry="2.7"/><ellipse cx="17.7" cy="10" rx="2.1" ry="2.6"/></svg>Pack</button>
+  <button class="tab" data-tab="me"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>My dog</button>
+</div></nav>
+
+<div class="scrim" id="scrim" hidden></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" hidden><div class="in" id="sheetIn"></div></div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(() => {
+"use strict";
+
+/* ---------- constants ---------- */
+const PARKS = [
+  {id:"common",    name:"Boston Common",          short:"Common",       x:156, y:180, note:"Big lawns. Off-leash only during Green Dog hours, with the permit."},
+  {id:"garden",    name:"Public Garden",          short:"Public Garden",x:93,  y:188, note:"Leashed strolls past the Make Way for Ducklings statues."},
+  {id:"esplanade", name:"Charles River Esplanade",short:"Esplanade",    x:52,  y:124, note:"River path for long loops along the Charles."},
+  {id:"pos",       name:"Post Office Square",     short:"Post Office Sq",x:279, y:151, note:"Small FiDi lawn, busiest at lunch. Leashed."},
+  {id:"cityhall",  name:"City Hall Plaza",        short:"City Hall",    x:246, y:86,  note:"Wide open plaza, easy meetup spot."},
+  {id:"greenway",  name:"Greenway at Dewey Sq",   short:"Greenway",     x:281, y:208, note:"Rose Kennedy Greenway by South Station. Leashed."},
+  {id:"columbus",  name:"Columbus Waterfront Park",short:"Columbus Park",x:334, y:68, note:"Harbor breeze and the long trellis walk."},
+  {id:"fortpoint", name:"Fort Point Harborwalk",  short:"Fort Point",   x:372, y:238, note:"Waterfront path along the channel."},
+  {id:"peters",    name:"Peters Park Dog Run",    short:"Peters Park",  x:151, y:357, note:"Fenced dog run in the South End."},
+];
+const PARK = Object.fromEntries(PARKS.map(p => [p.id, p]));
+const COATS = [
+  {id:"fawn",c:"#D6A66C",t:"#2A1D0E",n:"Fawn"},
+  {id:"golden",c:"#E2B24A",t:"#2A1D0E",n:"Golden"},
+  {id:"red",c:"#B4573A",t:"#FFF4EE",n:"Red"},
+  {id:"choc",c:"#6A4228",t:"#FBEFE4",n:"Chocolate"},
+  {id:"black",c:"#2A2A2A",t:"#F2F2F2",n:"Black"},
+  {id:"cream",c:"#EFE3CC",t:"#3A2E1C",n:"Cream"},
+  {id:"merle",c:"#8796A6",t:"#10161D",n:"Merle"},
+  {id:"brindle",c:"#7B5B3C",t:"#FBEFE4",n:"Brindle"},
+];
+const COAT = Object.fromEntries(COATS.map(c => [c.id, c]));
+const SOCIAL = {learning:"Still learning", friendly:"Friendly", party:"Party animal"};
+const SIZE = {S:"Small", M:"Medium", L:"Large"};
+const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+const DAYS_LONG = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const START = 6*60, STEP = 30, NS = 32; // 6:00 AM to 10:00 PM in half hours
+
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const ls = {
+  get(k, d){ try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+const pad = n => String(n).padStart(2, "0");
+const dateKey = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+const wday = d => (d.getDay()+6) % 7;              // 0 = Monday
+const fromKey = k => { const [y,m,d] = k.split("-").map(Number); return new Date(y, m-1, d); };
+const fmt = m => { const h = Math.floor(m/60), mm = m%60, ap = h >= 12 ? "PM" : "AM"; return `${((h+11)%12)+1}${mm ? ":"+pad(mm) : ""} ${ap}`; };
+const fmtShort = m => { const h = Math.floor(m/60), mm = m%60; return `${((h+11)%12)+1}${mm ? ":"+pad(mm) : ""}${h >= 12 ? "p" : "a"}`; };
+const range = (a, b) => { const sa = fmt(a), sb = fmt(b); return sa.slice(-2) === sb.slice(-2) ? `${sa.slice(0,-3)}–${sb}` : `${sa}–${sb}`; };
+const slotMin = s => START + s*STEP;
+const nowMin = () => { const n = new Date(); return n.getHours()*60 + n.getMinutes(); };
+const today = () => dateKey(new Date());
+const dayLabel = k => { const t = today(); if (k === t) return "Today"; if (k === dateKey(addDays(new Date(),1))) return "Tomorrow"; const d = fromKey(k); return `${DAYS[wday(d)]} ${d.getDate()}`; };
+const uidGen = () => Math.random().toString(36).slice(2, 10);
+const emptyAvail = () => Array.from({length:7}, () => "0".repeat(NS));
+const blankDoc = () => ({dog:null, ownerName:"", favParks:[], avail:emptyAvail(), pings:[]});
+
+function av(dog, cls=""){
+  const c = COAT[dog?.doc?.dog?.coat] || COATS[0];
+  const ini = (dog?.doc?.dog?.name || "?").trim().charAt(0).toUpperCase();
+  return `<span class="av ${cls} ${dog?.example ? "ex" : ""}" style="--c:${c.c};--t:${c.t}" aria-hidden="true">${esc(ini)}</span>`;
+}
+
+/* ---------- example pack (local only, never saved) ---------- */
+function availFrom(spec){
+  const a = emptyAvail().map(s => s.split(""));
+  for (const [days, from, to] of spec) for (const d of days)
+    for (let s = 0; s < NS; s++){ const m = slotMin(s); if (m >= from*60 && m < to*60) a[d][s] = "1"; }
+  return a.map(r => r.join(""));
+}
+function examples(){
+  const t = today(), tm = dateKey(addDays(new Date(), 1));
+  const wk = [0,1,2,3,4];
+  const mk = (id, dog, owner, fav, spec, pings) => ({uid:"ex-"+id, example:true, doc:{dog, ownerName:owner, favParks:fav, avail:availFrom(spec), pings:pings.map(p => ({id:uidGen(), ...p}))}});
+  return [
+    mk("biscuit",{name:"Biscuit",breed:"Corgi",size:"S",social:"party",coat:"red",vibe:"Herds the bigger dogs. Will steal your ball."},"Example",["common","garden"],
+      [[wk,7,8.5],[wk,17,19],[[5,6],9,12]],[{date:t,park:"common",start:17*60,end:18*60+30}]),
+    mk("luna",{name:"Luna",breed:"Black Lab",size:"L",social:"friendly",coat:"black",vibe:"Swims if you let her. Gentle with puppies."},"Example",["esplanade","common"],
+      [[wk,6.5,8],[wk,17.5,19],[[5],8,11]],[{date:t,park:"esplanade",start:7*60,end:8*60},{date:tm,park:"common",start:17*60+30,end:19*60}]),
+    mk("pepper",{name:"Pepper",breed:"French Bulldog",size:"S",social:"learning",coat:"fawn",vibe:"Nervous at first. Slow intros please."},"Example",["pos","greenway"],
+      [[wk,12,13],[wk,18,19],[[6],10,12]],[{date:t,park:"pos",start:12*60,end:13*60},{date:t,park:"greenway",start:18*60,end:19*60}]),
+    mk("otis",{name:"Otis",breed:"Goldendoodle",size:"L",social:"party",coat:"golden",vibe:"Never met a dog he didn't like."},"Example",["columbus","greenway","common"],
+      [[wk,16.5,18.5],[[6],10,14],[[5],9,11]],[{date:t,park:"columbus",start:16*60+30,end:18*60}]),
+    mk("mabel",{name:"Mabel",breed:"Beagle",size:"M",social:"friendly",coat:"choc",vibe:"Nose first, ears second, listening third."},"Example",["peters","common"],
+      [[wk,7,8],[wk,16,18],[[5],9,11]],[{date:t,park:"common",start:16*60+30,end:17*60+30},{date:tm,park:"peters",start:7*60,end:8*60}]),
+  ];
+}
+
+/* ---------- state ---------- */
+const S = {
+  mode:"local",            // local | claude | firebase
+  uid:"local",
+  readOnly:false,
+  docs:{},                 // uid -> doc (other owners, live)
+  my:ls.get("pp.mine", null) || blankDoc(),
+  dirty:false,
+  names:{},                // uid -> display name from the platform
+  tab:"map",
+  day:today(),
+  time:null,               // minutes, or null for all day
+  park:null,
+  planMode:"mine",
+  excluded:new Set(ls.get("pp.excluded", [])),
+  pick:null,               // [day, slot] in group view
+  hideEx:ls.get("pp.hideEx", false),
+  examples:examples(),
+};
+if (!Array.isArray(S.my.avail) || S.my.avail.length !== 7) S.my.avail = emptyAvail();
+S.my.pings = S.my.pings || []; S.my.favParks = S.my.favParks || [];
+
+function realDogs(){
+  const out = [];
+  for (const [uid, doc] of Object.entries(S.docs)) if (uid !== S.uid && doc?.dog?.name) out.push({uid, doc});
+  return out;
+}
+function showingExamples(){ return !S.hideEx && realDogs().length < 3; }
+function allDogs(){
+  const list = [];
+  if (S.my.dog?.name) list.push({uid:S.uid, doc:S.my, mine:true});
+  list.push(...realDogs());
+  if (showingExamples()) list.push(...S.examples);
+  return list;
+}
+const ownerName = d => d.mine ? "You" : (S.names[d.uid] || d.doc.ownerName || (d.example ? "Example" : "a neighbor"));
+
+/* ---------- storage backends ---------- */
+let backend = null;         // {save(body)}
+function setStatus(text, live){
+  $("#statusText").textContent = text;
+  $("#status .dot").classList.toggle("live", !!live);
+}
+function onDocs(list){
+  const next = {};
+  for (const {id, data} of list) next[id] = data;
+  S.docs = next;
+  if (next[S.uid] && !S.dirty && !S.loadedMine){ S.my = normalize(next[S.uid]); S.loadedMine = true; fillForm(); }
+  else if (!next[S.uid]) S.loadedMine = true;
+  const n = Object.values(next).filter(d => d?.dog?.name).length;
+  setStatus(`Live · ${n} ${n === 1 ? "dog" : "dogs"}`, true);
+  resolveNames();
+  renderAll();
+}
+function normalize(d){
+  const x = {...blankDoc(), ...d};
+  if (!Array.isArray(x.avail) || x.avail.length !== 7) x.avail = emptyAvail();
+  x.pings = Array.isArray(x.pings) ? x.pings : [];
+  x.favParks = Array.isArray(x.favParks) ? x.favParks : [];
+  return x;
+}
+async function resolveNames(){
+  if (S.mode !== "claude" || !S.userNs) return;
+  const ids = Object.keys(S.docs);
+  if (!ids.length) return;
+  const ps = await S.userNs.profiles(ids);
+  let changed = false;
+  for (const id of ids){ const n = ps[id]?.name || ""; if (n && S.names[id] !== n){ S.names[id] = n; changed = true; } }
+  if (changed) renderAll();
+}
+
+function loadScript(src){ return new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); }); }
+
+async function connect(){
+  // 1. Hosted app with a Firebase project configured
+  const cfg = window.PARKPACK_FIREBASE;
+  if (cfg && cfg.apiKey){
+    try {
+      const v = "10.12.2", base = `https://www.gstatic.com/firebasejs/${v}/`;
+      await loadScript(base + "firebase-app-compat.js");
+      await Promise.all([loadScript(base + "firebase-auth-compat.js"), loadScript(base + "firebase-firestore-compat.js")]);
+      firebase.initializeApp(cfg);
+      const cred = await firebase.auth().signInAnonymously();
+      S.mode = "firebase"; S.uid = cred.user.uid;
+      const coll = firebase.firestore().collection("owners");
+      backend = { save: body => coll.doc(S.uid).set(body) };
+      coll.onSnapshot(snap => onDocs(snap.docs.map(d => ({id:d.id, data:d.data()}))),
+                      () => setStatus("Can't reach the pack right now", false));
+      return;
+    } catch (e) { console.warn("Firebase unavailable, using this device only", e); }
+  }
+  // 2. Inside Claude (shared artifact)
+  if (window.claude && typeof window.claude.use === "function"){
+    const [db, user] = await Promise.all([window.claude.use("db"), window.claude.use("user")]);
+    if (db){
+      S.mode = "claude"; S.userNs = user;
+      const id = user ? await user.id() : null;
+      if (!id){ S.readOnly = true; S.uid = "nobody"; } else S.uid = id;
+      const coll = db.collection("owners");
+      backend = { save: body => coll.doc(S.uid).set(body) };
+      const timer = setTimeout(() => setStatus("Still reaching the pack…", false), 10000);
+      coll.onSnapshot(snap => { if (!snap.metadata.fromCache) clearTimeout(timer); onDocs(snap.docs.map(d => ({id:d.id, data:d.data()}))); },
+                      () => { clearTimeout(timer); setStatus("Can't reach the pack right now", false); });
+      renderAll();
+      return;
+    }
+  }
+  // 3. Nothing shared: keep it on this device
+  S.mode = "local";
+  setStatus("On this device only", false);
+  renderAll();
+}
+
+let saveTimer = null, chain = Promise.resolve();
+function markDirty(){ S.dirty = true; ls.set("pp.mine", S.my); }
+function queueSave(delay = 700){
+  markDirty();
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => { chain = chain.then(doSave); }, delay);
+}
+async function doSave(){
+  const t = today();
+  S.my.pings = S.my.pings.filter(p => p.date >= t).slice(-40);
+  const body = JSON.parse(JSON.stringify({...S.my, updatedAt:new Date().toISOString()}));
+  ls.set("pp.mine", S.my);
+  if (!backend){ S.dirty = false; return; }
+  try { await backend.save(body); S.dirty = false; }
+  catch (e){
+    console.warn(e);
+    if (e?.code === "invalid_argument" || e?.code === "permission-denied"){
+      S.readOnly = true; renderAll();
+      toast("You can see the pack but can't post yet. Ask whoever shared this to invite you as an editor.");
+    } else toast("Couldn't save just now. It's kept on this phone and will retry with your next change.");
+  }
+}
+
+/* ---------- toast ---------- */
+let toastT;
+function toast(msg){ const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 3200); }
+
+/* ---------- pings ---------- */
+function pingsOn(dk){
+  const out = [];
+  for (const d of allDogs()) for (const p of d.doc.pings || []) if (p.date === dk && PARK[p.park]) out.push({...p, dog:d});
+  return out.sort((a,b) => a.start - b.start);
+}
+const covers = (p, m) => p.start <= m && m < p.end;
+const isLive = p => p.date === today() && covers(p, nowMin());
+function regularsAt(parkId, dk, m, exclude){
+  const d = wday(fromKey(dk)), s = Math.floor((m - START)/STEP);
+  if (s < 0 || s >= NS) return [];
+  return allDogs().filter(x => !exclude.has(x.uid) && (x.doc.favParks || []).includes(parkId) && x.doc.avail?.[d]?.[s] === "1");
+}
+
+/* ---------- MAP ---------- */
+function renderDayChips(){
+  const base = new Date(); let h = "";
+  for (let i = 0; i < 7; i++){
+    const k = dateKey(addDays(base, i)), n = pingsOn(k).length;
+    h += `<button class="chip ${k === S.day ? "on" : ""}" data-day="${k}" role="tab" aria-selected="${k === S.day}">${dayLabel(k)}${n ? `<span class="n">${n}</span>` : ""}</button>`;
+  }
+  $("#dayChips").innerHTML = h;
+}
+function renderMap(){
+  renderDayChips();
+  const all = pingsOn(S.day);
+  const vis = S.time == null ? all : all.filter(p => covers(p, S.time));
+  // summary
+  const dogs = new Set(all.map(p => p.dog.uid)), parks = new Set(all.map(p => p.park));
+  let peak = null;
+  for (const pk of PARKS) for (let s = 0; s < NS; s++){
+    const m = slotMin(s), c = all.filter(p => p.park === pk.id && covers(p, m)).length;
+    if (c > (peak?.c || 0)) peak = {c, pk, m};
+  }
+  const lbl = dayLabel(S.day).toLowerCase();
+  const when = lbl === "today" || lbl === "tomorrow" ? lbl : "on " + dayLabel(S.day);
+  $("#summary").innerHTML = all.length
+    ? `<b>${dogs.size} ${dogs.size === 1 ? "dog" : "dogs"}</b> heading out ${esc(when)} across <b>${parks.size} ${parks.size === 1 ? "park" : "parks"}</b>.` +
+      (peak && peak.c > 1 ? ` Busiest: ${esc(peak.pk.short)} around ${fmt(peak.m)} (${peak.c} dogs).` : "")
+    : `No one has pinged a park ${esc(when)} yet. Be the first: tap <b>Ping a park</b>.`;
+  // example bar
+  $("#exbar").hidden = !showingExamples();
+  // pins
+  const g = $("#pins"); let h = "";
+  const order = [...PARKS].sort((a,b) => (S.park === a.id) - (S.park === b.id));
+  for (const pk of order){
+    const here = vis.filter(p => p.park === pk.id);
+    const n = new Set(here.map(p => p.dog.uid)).size;
+    const live = all.some(p => p.park === pk.id && isLive(p));
+    const regs = S.time == null ? [] : regularsAt(pk.id, S.day, S.time, new Set(here.map(p => p.dog.uid)));
+    const r = n ? 11 + Math.min(n, 6)*1.6 : 6;
+    h += `<g class="pin ${n ? "" : "empty"} ${S.park === pk.id ? "sel" : ""}" data-park="${pk.id}" transform="translate(${pk.x},${pk.y})" tabindex="0" role="button" aria-label="${esc(pk.name)}: ${n} dogs">`;
+    if (n) h += `<circle class="halo" r="${r + 7}"/>`;
+    if (regs.length) h += `<circle class="reg" r="${r + 5}"/>`;
+    if (live) h += `<circle class="livering" r="${r + 2}"/>`;
+    h += `<circle class="body" r="${r}"/>`;
+    if (n) h += `<text class="count">${n}</text>`;
+    h += `<text class="name" y="${r + 13}">${esc(pk.short)}</text></g>`;
+  }
+  g.innerHTML = h;
+  // time output
+  $("#allDay").classList.toggle("on", S.time == null);
+  $("#timeOut").textContent = S.time == null ? "Any time" : fmt(S.time);
+  renderParkPanel(all, vis);
+}
+function renderParkPanel(all, vis){
+  const el = $("#parkPanel");
+  if (!S.park){
+    const rows = PARKS.map(pk => ({pk, n:new Set(vis.filter(p => p.park === pk.id).map(p => p.dog.uid)).size, list:vis.filter(p => p.park === pk.id)}))
+      .sort((a,b) => b.n - a.n || a.pk.name.localeCompare(b.pk.name));
+    const max = Math.max(1, ...rows.map(r => r.n));
+    el.innerHTML = `<div class="panel-head"><h3>Parks ${S.time == null ? "" : "at " + fmt(S.time)}</h3><span class="small muted">Tap a park for details</span></div>
+      <div class="rows">${rows.map(r => `<button class="row parkrow" data-park="${r.pk.id}">
+        <div class="grow"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(r.pk.name)}</b><span class="num muted small">${r.n ? r.n + (r.n === 1 ? " dog" : " dogs") : "quiet"}</span></div>
+        <div class="bar"><span style="width:${r.n/max*100}%"></span></div></div>
+        <span class="stack">${[...new Map(r.list.map(p => [p.dog.uid, p.dog])).values()].slice(0,4).map(d => av(d,"sm")).join("")}</span></button>`).join("")}</div>`;
+    return;
+  }
+  const pk = PARK[S.park];
+  const here = all.filter(p => p.park === pk.id);
+  const shown = S.time == null ? here : here.filter(p => covers(p, S.time));
+  const regs = S.time == null ? [] : regularsAt(pk.id, S.day, S.time, new Set(shown.map(p => p.dog.uid)));
+  el.innerHTML = `<div class="panel-head"><div><h3>${esc(pk.name)}</h3><p class="note" style="margin-top:2px">${esc(pk.note)}</p></div>
+      <button class="iconbtn" data-close-park aria-label="Back to all parks">All parks</button></div>
+    <div class="rows">${shown.length ? shown.map(p => `<div class="row">${av(p.dog)}
+        <div class="grow"><b>${esc(p.dog.doc.dog.name)}</b> <span class="muted small">with ${esc(ownerName(p.dog))}</span>
+          ${p.note ? `<div class="note">${esc(p.note)}</div>` : ""}</div>
+        <div style="text-align:right"><div class="t">${range(p.start, p.end)}</div>${isLive(p) ? `<div class="livetag">There now</div>` : ""}</div></div>`).join("")
+      : `<div class="empty">No pings here ${S.time == null ? dayLabel(S.day).toLowerCase() : "at " + fmt(S.time)}.</div>`}</div>
+    ${regs.length ? `<div><div class="label" style="margin-bottom:6px">Usually free around now</div><div style="display:flex;align-items:center;gap:8px"><span class="stack">${regs.slice(0,6).map(d => av(d,"sm")).join("")}</span><span class="small muted">${esc(regs.map(d => d.doc.dog.name).join(", "))} list this park and this time on their week.</span></div></div>` : ""}
+    <button class="btn ball" data-ping-park="${pk.id}">Ping ${esc(pk.short)}</button>`;
+}
+
+/* ---------- PLAN ---------- */
+function planDogs(){ return allDogs().filter(d => !S.excluded.has(d.uid)); }
+function buildGrid(){
+  const g = $("#grid"), tw = wday(new Date());
+  let h = `<div></div>` + DAYS.map((d,i) => `<div class="gh ${i === tw ? "today" : ""}">${d}</div>`).join("");
+  for (let s = 0; s < NS; s++){
+    const m = slotMin(s);
+    h += `<div class="gt">${m % 60 === 0 ? fmtShort(m) : ""}</div>`;
+    for (let d = 0; d < 7; d++) h += `<div class="cell ${m % 60 === 0 ? "hr" : ""} ${d === 6 ? "last" : ""}" data-d="${d}" data-s="${s}"></div>`;
+  }
+  g.innerHTML = h;
+}
+function paintGrid(){
+  const g = $("#grid");
+  g.classList.toggle("paint", S.planMode === "mine" && !S.readOnly);
+  const cells = g.querySelectorAll(".cell");
+  if (S.planMode === "mine"){
+    cells.forEach(c => { c.classList.toggle("on", S.my.avail[c.dataset.d][c.dataset.s] === "1"); c.style.background = ""; c.classList.remove("pick"); });
+    return;
+  }
+  const dogs = planDogs(), n = Math.max(1, dogs.length);
+  cells.forEach(c => {
+    const d = +c.dataset.d, s = +c.dataset.s;
+    const k = dogs.filter(x => x.doc.avail?.[d]?.[s] === "1").length;
+    c.classList.remove("on");
+    c.style.background = k ? `color-mix(in srgb, var(--park) ${Math.round(18 + 82*k/n)}%, var(--surface))` : "";
+    c.classList.toggle("pick", !!S.pick && S.pick[0] === d && S.pick[1] === s);
+  });
+}
+function renderPlan(){
+  $("#segMine").classList.toggle("on", S.planMode === "mine");
+  $("#segGroup").classList.toggle("on", S.planMode === "group");
+  $("#groupTools").hidden = S.planMode !== "group";
+  $("#mineTools").hidden = S.planMode !== "mine";
+  $("#mineTools").textContent = S.readOnly ? "You're viewing only, so your week can't be saved here." : "Drag across squares to mark when you're usually free to walk. Drag again to erase. Saves on its own.";
+  const dogs = allDogs();
+  $("#dogFilter").innerHTML = dogs.map(d => `<button class="chip ${S.excluded.has(d.uid) ? "" : "on"}" data-dog="${esc(d.uid)}">${esc(d.doc.dog.name)}${d.mine ? " (you)" : ""}</button>`).join("") || `<span class="small muted">No dogs yet.</span>`;
+  const n = planDogs().length;
+  $("#heatKey").innerHTML = n ? `<span class="sw" style="background:var(--surface)"></span>0 <span class="sw" style="background:color-mix(in srgb,var(--park) 50%,var(--surface))"></span> some <span class="sw" style="background:var(--park)"></span>all ${n}` : "";
+  paintGrid();
+  renderCellInfo();
+  renderBest();
+}
+function renderCellInfo(){
+  const el = $("#cellInfo");
+  if (S.planMode !== "group" || !S.pick){ el.hidden = true; return; }
+  const [d, s] = S.pick, dogs = planDogs();
+  const free = dogs.filter(x => x.doc.avail?.[d]?.[s] === "1"), busy = dogs.filter(x => !free.includes(x));
+  el.hidden = false;
+  el.innerHTML = `<div class="panel-head"><h3>${DAYS_LONG[d]} ${range(slotMin(s), slotMin(s)+STEP)}</h3><span class="num muted small">${free.length}/${dogs.length} free</span></div>
+    <div><div class="label" style="margin-bottom:6px">Free</div>${free.length ? `<div style="display:flex;flex-wrap:wrap;gap:8px">${free.map(x => `<span style="display:inline-flex;align-items:center;gap:6px">${av(x,"sm")}${esc(x.doc.dog.name)}</span>`).join("")}</div>` : `<span class="muted small">Nobody yet</span>`}</div>
+    ${busy.length ? `<div class="small muted">Not free: ${esc(busy.map(x => x.doc.dog.name).join(", "))}</div>` : ""}`;
+}
+function bestWindows(){
+  const dogs = planDogs(), out = [];
+  if (dogs.length < 2) return out;
+  for (let d = 0; d < 7; d++){
+    let run = null;
+    const close = () => { if (run && run.ids.length >= 2) out.push(run); run = null; };
+    for (let s = 0; s <= NS; s++){
+      const ids = s < NS ? dogs.filter(x => x.doc.avail?.[d]?.[s] === "1").map(x => x.uid) : [];
+      const key = ids.join("|");
+      if (run && run.key === key){ run.end = s + 1; continue; }
+      close();
+      if (ids.length >= 2) run = {d, start:s, end:s + 1, ids, key};
+    }
+  }
+  // The same window and dogs on several days becomes one suggestion ("Weekdays 5:30–6 PM").
+  const merged = new Map();
+  for (const w of out){
+    const k = `${w.start}-${w.end}-${w.key}`;
+    if (merged.has(k)) merged.get(k).days.push(w.d); else merged.set(k, {...w, days:[w.d]});
+  }
+  return [...merged.values()].sort((a,b) => b.ids.length - a.ids.length || (b.end - b.start) - (a.end - a.start) || b.days.length - a.days.length || a.days[0] - b.days[0]).slice(0, 6);
+}
+function daysLabel(days){
+  const s = days.join(",");
+  if (s === "0,1,2,3,4") return "Weekdays";
+  if (s === "5,6") return "Weekends";
+  if (s === "0,1,2,3,4,5,6") return "Every day";
+  return days.map(d => DAYS[d]).join(", ");
+}
+function soonestDay(days, endMin){
+  return days.map(d => nextDateFor(d, endMin)).sort()[0];
+}
+function suggestPark(ids){
+  const tally = {};
+  for (const d of allDogs()) if (ids.includes(d.uid)) for (const p of d.doc.favParks || []) tally[p] = (tally[p] || 0) + 1;
+  const top = Object.entries(tally).sort((a,b) => b[1] - a[1])[0];
+  return top ? top[0] : "common";
+}
+function nextDateFor(d, endMin){
+  const now = new Date(); let delta = (d - wday(now) + 7) % 7;
+  if (delta === 0 && nowMin() >= endMin) delta = 7;
+  return dateKey(addDays(now, delta));
+}
+function renderBest(){
+  const el = $("#best"), wins = bestWindows();
+  if (!wins.length){
+    el.innerHTML = `<li class="empty" style="display:block">${planDogs().length < 2 ? "Once two or more dogs mark their week, the best overlaps show up here." : "No overlaps yet. Try adding more free time on My week."}</li>`;
+    return;
+  }
+  const byUid = Object.fromEntries(allDogs().map(d => [d.uid, d]));
+  el.innerHTML = wins.map((w, i) => {
+    const a = slotMin(w.start), b = slotMin(w.end), pk = PARK[suggestPark(w.ids)];
+    const members = w.ids.map(id => byUid[id]).filter(Boolean);
+    return `<li><div class="grow"><div class="when num">${daysLabel(w.days)} ${range(a, b)}</div>
+      <div class="small muted" style="margin-top:2px">${members.length} dogs free · try ${esc(pk.name)}</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:6px"><span class="stack">${members.slice(0,6).map(d => av(d,"sm")).join("")}</span><span class="small" style="overflow-wrap:anywhere">${esc(members.map(d => d.doc.dog.name).join(", "))}</span></div></div>
+      ${S.readOnly ? "" : `<button class="btn sm" data-best="${i}">Ping it</button>`}</li>`;
+  }).join("");
+  el._wins = wins;
+}
+
+/* ---------- PACK ---------- */
+function renderPack(){
+  const dogs = allDogs(), t = today();
+  $("#packLede").textContent = dogs.length ? `${dogs.length} ${dogs.length === 1 ? "dog" : "dogs"} on Park Pack, with where they're headed next.` : "No dogs yet.";
+  $("#packList").innerHTML = dogs.length ? dogs.map(d => {
+    const dg = d.doc.dog, nxt = (d.doc.pings || []).filter(p => p.date > t || (p.date === t && p.end > nowMin())).sort((a,b) => a.date.localeCompare(b.date) || a.start - b.start)[0];
+    return `<article class="dogcard"><div class="hd">${av(d, "lg")}<div style="min-width:0"><h3>${esc(dg.name)}</h3>
+        <div class="small muted">${esc(dg.breed || "Good dog")} · with ${esc(ownerName(d))}</div></div></div>
+      <div class="tags"><span class="tag">${SIZE[dg.size] || "Medium"}</span><span class="tag ${dg.social === "learning" ? "learn" : ""}">${SOCIAL[dg.social] || "Friendly"}</span>${d.example ? `<span class="tag ex">Example</span>` : ""}</div>
+      ${dg.vibe ? `<p class="note">${esc(dg.vibe)}</p>` : ""}
+      <div class="small"><span class="label">Next</span> ${nxt && PARK[nxt.park] ? `${esc(PARK[nxt.park].short)}, ${dayLabel(nxt.date)} ${range(nxt.start, nxt.end)}` : `<span class="muted">No pings planned</span>`}</div>
+      ${(d.doc.favParks || []).length ? `<div class="small muted">Usually at ${esc(d.doc.favParks.filter(p => PARK[p]).map(p => PARK[p].short).join(", "))}</div>` : ""}
+    </article>`;
+  }).join("") : `<div class="empty">Set up your dog on <b>My dog</b>, then share the link with other owners.</div>`;
+}
+
+/* ---------- ME ---------- */
+function buildForm(){
+  $("#coats").innerHTML = COATS.map(c => `<label><input type="radio" name="coat" value="${c.id}" id="coat-${c.id}"><span class="sw" style="background:${c.c}"></span>${c.n}</label>`).join("");
+  $("#favParks").innerHTML = PARKS.map(p => `<label><input type="checkbox" value="${p.id}" id="fav-${p.id}">${esc(p.short)}</label>`).join("");
+}
+function fillForm(){
+  const d = S.my.dog || {};
+  $("#f-name").value = d.name || ""; $("#f-breed").value = d.breed || "";
+  $("#f-size").value = d.size || "M"; $("#f-social").value = d.social || "friendly";
+  $("#f-vibe").value = d.vibe || ""; $("#f-owner").value = S.my.ownerName || "";
+  const coat = $(`#coat-${d.coat || "fawn"}`); if (coat) coat.checked = true;
+  PARKS.forEach(p => $(`#fav-${p.id}`).checked = S.my.favParks.includes(p.id));
+}
+function renderMe(){
+  $("#meTitle").textContent = S.my.dog?.name ? S.my.dog.name : "Your dog";
+  $("#saveDog").textContent = S.my.dog?.name ? "Save changes" : "Add my dog";
+  $("#saveDog").disabled = S.readOnly;
+  const note = $("#formNote");
+  note.hidden = !(S.readOnly || S.mode === "local");
+  note.textContent = S.readOnly ? "You're viewing only. Ask whoever shared Park Pack to invite you so you can add your dog."
+    : "Saved on this phone only. Other owners will see you once Park Pack is connected to its shared pack.";
+  const t = today(), mine = S.my.pings.filter(p => p.date >= t).sort((a,b) => a.date.localeCompare(b.date) || a.start - b.start);
+  $("#myPings").innerHTML = mine.length ? mine.map(p => `<div class="row"><div class="grow"><b>${esc(PARK[p.park]?.name || p.park)}</b>
+      <div class="small muted num">${dayLabel(p.date)} · ${range(p.start, p.end)}</div>${p.note ? `<div class="note">${esc(p.note)}</div>` : ""}</div>
+      ${S.readOnly ? "" : `<button class="iconbtn" data-unping="${esc(p.id)}">Remove</button>`}</div>`).join("")
+    : `<div class="empty">No pings yet. Tap <b>Ping a park</b> when you're heading out.</div>`;
+  renderInstall();
+}
+
+/* ---------- install (PWA) ---------- */
+let installEvt = null;
+const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const canInstallHere = () => S.mode !== "claude" && /^https?:$/.test(location.protocol) && !isStandalone();
+function renderInstall(){
+  const card = $("#installCard"), show = canInstallHere();
+  $("#installBtn").hidden = !(show && installEvt);
+  card.hidden = !show;
+  if (!show) return;
+  card.innerHTML = installEvt
+    ? `<h3>Put Park Pack on your home screen</h3><p class="small muted">It opens full screen like any other app.</p><button class="btn" id="installNow">Install app</button>`
+    : isIOS()
+      ? `<h3>Add Park Pack to your iPhone</h3><ol class="steps small"><li>Open this page in <b>Safari</b>.</li><li>Tap the <b>Share</b> button (square with an arrow).</li><li>Choose <b>Add to Home Screen</b>, then <b>Add</b>.</li></ol>`
+      : `<h3>Add Park Pack to your phone</h3><ol class="steps small"><li>Open this page in <b>Chrome</b>.</li><li>Tap the <b>⋮</b> menu.</li><li>Choose <b>Install app</b> or <b>Add to Home screen</b>.</li></ol>`;
+}
+async function doInstall(){
+  if (!installEvt) return;
+  installEvt.prompt();
+  await installEvt.userChoice.catch(() => {});
+  installEvt = null; renderInstall();
+}
+addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; renderInstall(); });
+addEventListener("appinstalled", () => { installEvt = null; renderInstall(); toast("Installed. Find Park Pack on your home screen."); });
+if ("serviceWorker" in navigator && !window.claude && (location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1"))
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+
+/* ---------- ping sheet ---------- */
+const sheetState = {};
+function openSheet(prefill = {}){
+  if (S.readOnly){ toast("You're viewing only, so you can't post pings yet."); return; }
+  const now = nowMin();
+  const roundUp = Math.min(Math.max(Math.ceil(now/30)*30, START), START + (NS-2)*STEP);
+  Object.assign(sheetState, {park:prefill.park || S.park || S.my.favParks[0] || "common", date:prefill.date || (S.day >= today() ? S.day : today()),
+    start:prefill.start ?? roundUp, end:prefill.end ?? roundUp + 60, note:""});
+  renderSheet();
+  $("#scrim").hidden = false; $("#sheet").hidden = false;
+  document.body.style.overflow = "hidden";
+}
+function closeSheet(){ $("#scrim").hidden = true; $("#sheet").hidden = true; document.body.style.overflow = ""; }
+function timeOpts(sel, min = START, max = START + NS*STEP){
+  let h = ""; for (let m = min; m <= max; m += STEP) h += `<option value="${m}" ${m === sel ? "selected" : ""}>${fmt(m)}</option>`; return h;
+}
+function renderSheet(){
+  const el = $("#sheetIn");
+  if (!S.my.dog?.name){
+    el.innerHTML = `<div class="grab"></div><h2 id="sheetTitle">Add your dog first</h2><p class="muted">Other owners need to know who's coming. It takes 20 seconds.</p><button class="btn" data-go-me>Set up my dog</button><button class="btn ghost" data-close-sheet>Not now</button>`;
+    return;
+  }
+  const st = sheetState, base = new Date();
+  el.innerHTML = `<div class="grab"></div>
+    <div class="panel-head"><h2 id="sheetTitle">Where's ${esc(S.my.dog.name)} headed?</h2><button class="iconbtn" data-close-sheet>Cancel</button></div>
+    <div class="field"><span class="label">Park</span><div class="wrapchips">${PARKS.map(p => `<button class="chip ${st.park === p.id ? "on" : ""}" data-sp="${p.id}">${esc(p.short)}</button>`).join("")}</div></div>
+    <div class="field"><span class="label">Day</span><div class="chips">${Array.from({length:7}, (_, i) => dateKey(addDays(base, i))).map(k => `<button class="chip ${st.date === k ? "on" : ""}" data-sd="${k}">${dayLabel(k)}</button>`).join("")}</div></div>
+    <div class="two">
+      <div class="field"><label for="s-start">From</label><select class="input" id="s-start">${timeOpts(st.start, START, START + (NS-1)*STEP)}</select></div>
+      <div class="field"><label for="s-end">Until</label><select class="input" id="s-end">${timeOpts(st.end, st.start + STEP)}</select></div>
+    </div>
+    <div class="field"><label for="s-note">Note <span class="muted">(optional)</span></label><input class="input" id="s-note" maxlength="60" placeholder="Bringing the frisbee" value="${esc(st.note)}"></div>
+    <div class="two"><button class="btn ghost" data-now>Leaving now, 1 hr</button><button class="btn ball" data-save-ping>Ping it</button></div>`;
+}
+function savePing(){
+  const st = sheetState;
+  st.start = +$("#s-start").value; st.end = +$("#s-end").value; st.note = $("#s-note").value.trim();
+  if (st.end <= st.start){ toast("Pick an end time after the start."); return; }
+  S.my.pings.push({id:uidGen(), date:st.date, park:st.park, start:st.start, end:st.end, ...(st.note ? {note:st.note} : {})});
+  queueSave(0);
+  closeSheet();
+  S.day = st.date; S.park = st.park; S.time = null;
+  setTab("map");
+  toast(`Pinged ${PARK[st.park].short}, ${dayLabel(st.date).toLowerCase() === "today" ? "today" : dayLabel(st.date)} ${range(st.start, st.end)}.`);
+}
+
+/* ---------- tabs + render ---------- */
+function setTab(t){
+  S.tab = t;
+  for (const v of ["map","plan","pack","me"]) $("#v-" + v).hidden = v !== t;
+  document.querySelectorAll(".tab").forEach(b => { b.classList.toggle("on", b.dataset.tab === t); b.setAttribute("aria-current", b.dataset.tab === t ? "page" : "false"); });
+  $("#fab").hidden = t === "me" || S.readOnly;
+  renderAll();
+  window.scrollTo({top:0});
+}
+function renderAll(){
+  if (S.tab === "map") renderMap();
+  if (S.tab === "plan") renderPlan();
+  if (S.tab === "pack") renderPack();
+  if (S.tab === "me") renderMe();
+  $("#fab").hidden = S.tab === "me" || S.readOnly;
+  renderInstall();
+}
+
+/* ---------- events ---------- */
+document.querySelector(".tabs").addEventListener("click", e => { const b = e.target.closest(".tab"); if (b) setTab(b.dataset.tab); });
+$("#dayChips").addEventListener("click", e => { const b = e.target.closest("[data-day]"); if (b){ S.day = b.dataset.day; renderMap(); } });
+$("#exHide").addEventListener("click", () => { S.hideEx = true; ls.set("pp.hideEx", true); renderAll(); });
+$("#allDay").addEventListener("click", () => { S.time = S.time == null ? slotMin(+$("#timeSlider").value) : null; renderMap(); });
+$("#timeSlider").addEventListener("input", e => { S.time = slotMin(+e.target.value); renderMap(); });
+$("#pins").addEventListener("click", e => { const p = e.target.closest("[data-park]"); if (p){ S.park = S.park === p.dataset.park ? null : p.dataset.park; renderMap(); } });
+$("#pins").addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.dataset?.park){ e.preventDefault(); S.park = e.target.dataset.park; renderMap(); } });
+$("#parkPanel").addEventListener("click", e => {
+  const pr = e.target.closest(".parkrow"); if (pr){ S.park = pr.dataset.park; renderMap(); return; }
+  if (e.target.closest("[data-close-park]")){ S.park = null; renderMap(); return; }
+  const pp = e.target.closest("[data-ping-park]"); if (pp) openSheet({park:pp.dataset.pingPark, date:S.day, ...(S.time != null ? {start:S.time, end:S.time + 60} : {})});
+});
+$("#fab").addEventListener("click", () => openSheet());
+$("#installBtn").addEventListener("click", doInstall);
+$("#installCard").addEventListener("click", e => { if (e.target.closest("#installNow")) doInstall(); });
+
+$("#segMine").addEventListener("click", () => { S.planMode = "mine"; S.pick = null; renderPlan(); });
+$("#segGroup").addEventListener("click", () => { S.planMode = "group"; renderPlan(); });
+$("#dogFilter").addEventListener("click", e => {
+  const b = e.target.closest("[data-dog]"); if (!b) return;
+  const id = b.dataset.dog; S.excluded.has(id) ? S.excluded.delete(id) : S.excluded.add(id);
+  ls.set("pp.excluded", [...S.excluded]); renderPlan();
+});
+let painting = null;
+function setSlot(d, s, on){
+  const row = S.my.avail[d];
+  if ((row[s] === "1") === on) return;
+  S.my.avail[d] = row.slice(0, s) + (on ? "1" : "0") + row.slice(s + 1);
+  const c = $(`#grid .cell[data-d="${d}"][data-s="${s}"]`); if (c) c.classList.toggle("on", on);
+}
+const grid = $("#grid");
+grid.addEventListener("pointerdown", e => {
+  const c = e.target.closest(".cell"); if (!c) return;
+  const d = +c.dataset.d, s = +c.dataset.s;
+  if (S.planMode === "mine"){
+    if (S.readOnly) return;
+    e.preventDefault();
+    painting = S.my.avail[d][s] !== "1";
+    setSlot(d, s, painting);
+    try { grid.setPointerCapture(e.pointerId); } catch {}
+  } else { S.pick = [d, s]; paintGrid(); renderCellInfo(); }
+});
+grid.addEventListener("pointermove", e => {
+  if (painting === null){
+    if (S.planMode === "group" && e.pointerType === "mouse"){ const c = e.target.closest(".cell"); if (c){ const d = +c.dataset.d, s = +c.dataset.s; if (!S.pick || S.pick[0] !== d || S.pick[1] !== s){ S.pick = [d, s]; paintGrid(); renderCellInfo(); } } }
+    return;
+  }
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const c = el && el.closest && el.closest("#grid .cell");
+  if (c) setSlot(+c.dataset.d, +c.dataset.s, painting);
+});
+const endPaint = () => { if (painting === null) return; painting = null; queueSave(); renderBest(); };
+grid.addEventListener("pointerup", endPaint);
+grid.addEventListener("pointercancel", endPaint);
+addEventListener("pointerup", endPaint);
+
+$("#best").addEventListener("click", e => {
+  const b = e.target.closest("[data-best]"); if (!b) return;
+  const w = $("#best")._wins[+b.dataset.best]; if (!w) return;
+  const start = slotMin(w.start), end = slotMin(w.end);
+  openSheet({park:suggestPark(w.ids), date:soonestDay(w.days, end), start, end});
+});
+
+$("#dogForm").addEventListener("submit", e => {
+  e.preventDefault();
+  if (S.readOnly) return;
+  const name = $("#f-name").value.trim();
+  if (!name){ toast("Your dog needs a name."); $("#f-name").focus(); return; }
+  S.my.dog = {name, breed:$("#f-breed").value.trim(), size:$("#f-size").value, social:$("#f-social").value,
+    vibe:$("#f-vibe").value.trim(), coat:(document.querySelector('input[name="coat"]:checked') || {}).value || "fawn"};
+  S.my.ownerName = $("#f-owner").value.trim();
+  S.my.favParks = PARKS.filter(p => $(`#fav-${p.id}`).checked).map(p => p.id);
+  queueSave(0);
+  toast(`Saved ${name}.`);
+  renderAll();
+});
+$("#myPings").addEventListener("click", e => {
+  const b = e.target.closest("[data-unping]"); if (!b) return;
+  S.my.pings = S.my.pings.filter(p => p.id !== b.dataset.unping);
+  queueSave(0); renderAll();
+});
+
+$("#scrim").addEventListener("click", closeSheet);
+addEventListener("keydown", e => { if (e.key === "Escape" && !$("#sheet").hidden) closeSheet(); });
+$("#sheetIn").addEventListener("click", e => {
+  const t = e.target;
+  if (t.closest("[data-close-sheet]")){ closeSheet(); return; }
+  if (t.closest("[data-go-me]")){ closeSheet(); setTab("me"); $("#f-name").focus(); return; }
+  const sp = t.closest("[data-sp]"); if (sp){ sheetState.note = $("#s-note")?.value || ""; sheetState.start = +$("#s-start").value; sheetState.end = +$("#s-end").value; sheetState.park = sp.dataset.sp; renderSheet(); return; }
+  const sd = t.closest("[data-sd]"); if (sd){ sheetState.note = $("#s-note")?.value || ""; sheetState.start = +$("#s-start").value; sheetState.end = +$("#s-end").value; sheetState.date = sd.dataset.sd; renderSheet(); return; }
+  if (t.closest("[data-now]")){
+    const n = Math.max(START, Math.floor(nowMin()/30)*30);
+    Object.assign(sheetState, {date:today(), start:n, end:Math.min(n + 60, START + NS*STEP), note:$("#s-note").value});
+    renderSheet(); savePing(); return;
+  }
+  if (t.closest("[data-save-ping]")) savePing();
+});
+$("#sheetIn").addEventListener("change", e => {
+  if (e.target.id === "s-start"){
+    sheetState.start = +e.target.value; sheetState.note = $("#s-note").value;
+    if (+$("#s-end").value <= sheetState.start) sheetState.end = sheetState.start + 60; else sheetState.end = +$("#s-end").value;
+    sheetState.end = Math.min(sheetState.end, START + NS*STEP);
+    renderSheet();
+  }
+});
+
+/* refresh "there now" and today's date every minute */
+setInterval(() => { if (S.tab === "map") renderMap(); }, 60000);
+
+/* ---------- boot ---------- */
+buildForm(); buildGrid(); fillForm();
+{ const n = nowMin(); $("#timeSlider").value = Math.max(0, Math.min(NS-1, Math.floor((n - START)/STEP))); }
+renderAll();
+connect();
+})();
+</script>
+<!-- APP END -->
+</body>
+</html>

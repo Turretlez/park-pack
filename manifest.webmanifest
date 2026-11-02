@@ -1,0 +1,16 @@
+{
+  "name": "Park Pack: Downtown Boston Dogs",
+  "short_name": "Park Pack",
+  "description": "See which downtown Boston dogs are heading to which park, and find a time that works for the whole pack.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#EEF2EC",
+  "theme_color": "#2F6B45",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
