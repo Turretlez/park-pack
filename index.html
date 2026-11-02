@@ -164,7 +164,7 @@ button{cursor:pointer}
 
 /* tabs */
 .tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px))}
-.tabs .in{max-width:640px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr)}
+.tabs .in{max-width:640px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr)}
 .tab{background:none;border:0;padding:9px 0 10px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11.5px;font-weight:600;color:var(--muted)}
 .tab svg{width:22px;height:22px}
 .tab.on{color:var(--park)}
@@ -198,6 +198,24 @@ button{cursor:pointer}
 .dogcard .hd{display:flex;gap:12px;align-items:center}
 .dogcard h3{font-size:19px;font-weight:800}
 .tags{display:flex;flex-wrap:wrap;gap:6px}
+
+/* events */
+.evlist{display:flex;flex-direction:column;gap:10px}
+.ev{background:var(--surface);border-radius:16px;padding:14px;box-shadow:var(--shadow);display:flex;gap:12px;min-width:0}
+.ev .when{flex:none;width:48px;border-radius:12px;background:var(--park-soft);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 0;align-self:flex-start}
+.ev .when .d{font:800 20px var(--f-display);line-height:1}
+.ev .when .w{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.ev.now .when{background:var(--ball);color:var(--on-ball)}
+.ev.now .when .w{color:var(--on-ball)}
+.ev .grow{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.ev h3{font-size:17px;font-weight:800}
+.ev .meta{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.ev .meta b{color:var(--ink)}
+.ev .acts{display:flex;gap:14px;flex-wrap:wrap}
+.ev .acts .linkbtn{font-size:13px}
+a.linkbtn{text-decoration:none}
+.tag.check{background:transparent;border:1px solid var(--live);color:var(--live)}
+.tag.near{background:var(--park);color:var(--on-park)}
 
 /* form */
 .form{display:flex;flex-direction:column;gap:14px}
@@ -295,6 +313,20 @@ button{cursor:pointer}
     </div>
   </section>
 
+  <!-- EVENTS -->
+  <section class="view" id="v-events" aria-label="Dog events" hidden>
+    <div>
+      <h2>Dog events</h2>
+      <p class="muted" style="margin-top:4px" id="evLede">Dog-friendly things happening around Boston this week.</p>
+    </div>
+    <div class="evlist" id="evWeek"></div>
+    <h3 id="evNextHead">Coming up</h3>
+    <div class="evlist" id="evNext"></div>
+    <h3>Dog-friendly any day</h3>
+    <div class="panel"><div class="rows" id="evAnytime"></div></div>
+    <p class="small muted">Small events change plans a lot. Tap Details to check before you go.</p>
+  </section>
+
   <!-- PACK -->
   <section class="view" id="v-pack" aria-label="The pack" hidden>
     <div>
@@ -341,6 +373,7 @@ button{cursor:pointer}
 <nav class="tabs" aria-label="Sections"><div class="in">
   <button class="tab on" data-tab="map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>Map</button>
   <button class="tab" data-tab="plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M7 14h3v3H7z" fill="currentColor"/></svg>Find a time</button>
+  <button class="tab" data-tab="events"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 9a2.5 2.5 0 0 0 0 5v4h18v-4a2.5 2.5 0 0 1 0-5V5H3z"/><path d="M15 5v13" stroke-dasharray="2 2.5"/></svg>Events</button>
   <button class="tab" data-tab="pack"><svg viewBox="0 0 24 24" fill="currentColor"><ellipse cx="12" cy="15.5" rx="4.6" ry="4"/><ellipse cx="6.3" cy="10" rx="2.1" ry="2.6"/><ellipse cx="9.8" cy="6.8" rx="2.1" ry="2.7"/><ellipse cx="14.2" cy="6.8" rx="2.1" ry="2.7"/><ellipse cx="17.7" cy="10" rx="2.1" ry="2.6"/></svg>Pack</button>
   <button class="tab" data-tab="me"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>My dog</button>
 </div></nav>
@@ -371,6 +404,38 @@ const PARKS = [
 const HOODS = [["NORTH END",227,150],["WATERFRONT",350,300],["FINANCIAL DISTRICT",170,466],["DOWNTOWN",92,380],["FORT POINT",370,585]];
 const WATER_LABELS = [["Harbor",370,178],["Charles River",42,22],["Fort Point Channel",300,592]];
 const PARK = Object.fromEntries(PARKS.map(p => [p.id, p]));
+/* Dog events. Refresh weekly: add new ones; past ones drop off on their own.
+   date/endDate YYYY-MM-DD. trip: rough trip from the Greenway. near: walkable or a short ride from downtown.
+   check: only found on a listing site or an old-looking page, so not confirmed. */
+const DOG_EVENTS = [
+  {id:"p9-trivia-1105", title:"Pub Trivia at Park-9 Dog Bar", date:"2026-11-05", time:"7:30–9:30 PM", place:"Park-9 Dog Bar, 48 Waters Ave", trip:"Everett · ~25 min", cost:"Free", url:"https://www.park9dogbar.com/events",
+   note:"Weekly Geeks Who Drink trivia. You can play from anywhere, including the off-leash park, so the dogs run around while you answer. Top two teams win prizes. Dogs have to meet Park-9's entry requirements."},
+  {id:"p9-happy-1106", title:"Happy Hour at Park-9", date:"2026-11-06", time:"5–7 PM", place:"Park-9 Dog Bar, 48 Waters Ave", trip:"Everett · ~25 min", cost:"$5 off dog entry", url:"https://www.park9dogbar.com/events",
+   note:"Cheaper dog entry to the indoor/outdoor off-leash park. Heads up: Park-9 is closed all day Saturday the 7th for a private event."},
+  {id:"lasthope-1107", title:"Last Hope K9 adoption event", date:"2026-11-07", time:"Noon–2 PM", place:"The Village Club, Needham", trip:"Needham · ~30 min drive", cost:"Free", url:"https://www.lasthopek9.org/events/", check:true,
+   note:"Meet adoptable rescue dogs. It's on Last Hope's events page, but the listing looked old, so check it's still on."},
+  {id:"sowa-1108", title:"SoWa Open Market", date:"2026-11-08", time:"Daytime", place:"SoWa, 460 Harrison Ave", trip:"South End · ~15 min on the Silver Line", near:true, cost:"Free entry", url:"https://sowaboston.com/",
+   note:"The big open-air artist and farmer market is listed as pet-friendly; keep dogs leashed. Only two Sundays left this season (it ends Nov 15)."},
+  {id:"memdrive-1108", title:"Memorial Drive car-free Sunday", date:"2026-11-08", time:"Daytime", place:"Memorial Drive from Western Ave, Cambridge", trip:"Cambridge · ~25 min on the Red Line", cost:"Free", url:"https://www.meetboston.com/blog/post/dog-friendly-activities-in-boston/",
+   note:"DCR closes Memorial Drive along the Charles to cars. This is the last one of the year, weather permitting. A long, flat river walk with lots of dogs."},
+  {id:"pupkin-1108", title:"Pup-kin Patch Dog Adoption Beer Garden", date:"2026-11-08", time:"1 PM", place:"Break Rock Brewing, Marina Bay", trip:"Quincy · ~20 min drive", cost:"Free", url:"https://do617.com/events/2026/11/8", check:true,
+   note:"Adoptable dogs at the brewery's dog-friendly waterfront taproom. Only listed on Do617 so far, so check the details."},
+  {id:"bterrier-1111", title:"Annual Boston Terrier Meetup", date:"2026-11-11", time:"6–9 PM", place:"Park-9 Dog Bar, 48 Waters Ave", trip:"Everett · ~25 min", cost:"Dog entry", url:"https://www.park9dogbar.com/events",
+   note:"A whole bar full of Boston Terriers. Other breeds that meet Park-9's entry requirements are welcome too."},
+  {id:"p9-trivia-1112", title:"Pub Trivia at Park-9 Dog Bar", date:"2026-11-12", time:"7:30–9:30 PM", place:"Park-9 Dog Bar, 48 Waters Ave", trip:"Everett · ~25 min", cost:"Free", url:"https://www.park9dogbar.com/events",
+   note:"Weekly trivia with the off-leash park open."},
+  {id:"p9-happy-1113", title:"Happy Hour at Park-9", date:"2026-11-13", time:"5–7 PM", place:"Park-9 Dog Bar, 48 Waters Ave", trip:"Everett · ~25 min", cost:"$5 off dog entry", url:"https://www.park9dogbar.com/events",
+   note:"Cheaper dog entry to the off-leash park."},
+  {id:"sowa-1115", title:"SoWa Open Market, last day", date:"2026-11-15", time:"Daytime", place:"SoWa, 460 Harrison Ave", trip:"South End · ~15 min on the Silver Line", near:true, cost:"Free entry", url:"https://sowaboston.com/",
+   note:"Final Sunday of the season."},
+  {id:"arl-holidays", title:"ARL Home for the Holidays", date:"2026-11-29", time:"1–3 PM", place:"Animal Rescue League, 10 Anna's Place, Dedham", trip:"Dedham · ~25 min drive", cost:"Free", url:"https://www.arlboston.org/events/",
+   note:"Family- and dog-friendly afternoon with a dog cookie and photo station, story time, and a raffle."},
+];
+const DOG_ANYTIME = [
+  {name:"State Street Provisions", where:"255 State St · a few minutes from Greenway Meetup", note:"Dog-friendly restaurant. Dogs stay leashed, not tied to tables, and off the furniture."},
+  {name:"RUFF North End", where:"Off Prince St through the playground", note:"Fenced off-leash dog park. It's on the map."},
+  {name:"Park-9 Dog Bar", where:"48 Waters Ave, Everett", note:"A bar plus an indoor/outdoor off-leash park. You pay for dog entry."},
+];
 const COATS = [
   {id:"fawn",c:"#D6A66C",t:"#2A1D0E",n:"Fawn"},
   {id:"golden",c:"#E2B24A",t:"#2A1D0E",n:"Golden"},
@@ -807,6 +872,33 @@ function renderPack(){
   }).join("") : `<div class="empty">Set up your dog on <b>My dog</b>, then share the link with other owners.</div>`;
 }
 
+/* ---------- EVENTS ---------- */
+function evCard(e, thisWeek){
+  const d = fromKey(e.date), t = today();
+  const isNow = e.date <= t && (e.endDate || e.date) >= t;
+  const when = isNow ? "Today" : thisWeek ? dayLabel(e.date) : `${DAYS_LONG[wday(d)]}, ${d.toLocaleString("en-US", {month:"short"})} ${d.getDate()}`;
+  return `<article class="ev ${isNow ? "now" : ""}"><div class="when"><span class="w">${DAYS[wday(d)]}</span><span class="d num">${d.getDate()}</span></div>
+    <div class="grow"><h3>${esc(e.title)}</h3>
+      <div class="meta"><b>${esc(when)}</b> · ${esc(e.time)}<br>${esc(e.place)}</div>
+      <div class="tags">${e.near ? `<span class="tag near">Near downtown</span>` : ""}<span class="tag">${esc(e.trip)}</span><span class="tag">${esc(e.cost)}</span>${e.check ? `<span class="tag check">Confirm first</span>` : ""}</div>
+      <p class="note">${esc(e.note)}</p>
+      <div class="acts"><a class="linkbtn" href="${esc(e.url)}" target="_blank" rel="noopener">Details ↗</a>${navigator.share ? `<button class="linkbtn" data-share-ev="${esc(e.id)}">Send to the pack</button>` : ""}</div>
+    </div></article>`;
+}
+function renderEvents(){
+  const now = new Date(), t = today();
+  const sun = dateKey(addDays(now, 6 - wday(now))), horizon = dateKey(addDays(now, 35));
+  const live = DOG_EVENTS.filter(e => (e.endDate || e.date) >= t);
+  const byDate = (a, b) => a.date.localeCompare(b.date) || (b.near ? 1 : 0) - (a.near ? 1 : 0);
+  const week = live.filter(e => e.date <= sun).sort(byDate);
+  const next = live.filter(e => e.date > sun && e.date <= horizon).sort(byDate);
+  $("#evLede").textContent = week.length ? `${week.length} dog-friendly ${week.length === 1 ? "thing" : "things"} around Boston this week.` : "Dog-friendly things around Boston.";
+  $("#evWeek").innerHTML = week.length ? week.map(e => evCard(e, true)).join("") : `<div class="empty">Nothing listed for the rest of this week yet.</div>`;
+  $("#evNextHead").hidden = !next.length;
+  $("#evNext").innerHTML = next.map(e => evCard(e, false)).join("");
+  $("#evAnytime").innerHTML = DOG_ANYTIME.map(a => `<div class="row"><div class="grow"><div style="font-weight:700">${esc(a.name)}</div><div class="small muted">${esc(a.where)}</div><p class="note">${esc(a.note)}</p></div></div>`).join("");
+}
+
 /* ---------- ME ---------- */
 function buildForm(){
   $("#coats").innerHTML = COATS.map(c => `<label><input type="radio" name="coat" value="${c.id}" id="coat-${c.id}"><span class="sw" style="background:${c.c}"></span>${c.n}</label>`).join("");
@@ -912,18 +1004,19 @@ function savePing(){
 /* ---------- tabs + render ---------- */
 function setTab(t){
   S.tab = t;
-  for (const v of ["map","plan","pack","me"]) $("#v-" + v).hidden = v !== t;
+  for (const v of ["map","plan","events","pack","me"]) $("#v-" + v).hidden = v !== t;
   document.querySelectorAll(".tab").forEach(b => { b.classList.toggle("on", b.dataset.tab === t); b.setAttribute("aria-current", b.dataset.tab === t ? "page" : "false"); });
-  $("#fab").hidden = t === "me" || S.readOnly;
+  $("#fab").hidden = t === "me" || t === "events" || S.readOnly;
   renderAll();
   window.scrollTo({top:0});
 }
 function renderAll(){
   if (S.tab === "map") renderMap();
   if (S.tab === "plan") renderPlan();
+  if (S.tab === "events") renderEvents();
   if (S.tab === "pack") renderPack();
   if (S.tab === "me") renderMe();
-  $("#fab").hidden = S.tab === "me" || S.readOnly;
+  $("#fab").hidden = S.tab === "me" || S.tab === "events" || S.readOnly;
   renderInstall();
 }
 
@@ -941,6 +1034,11 @@ $("#parkPanel").addEventListener("click", e => {
   const pp = e.target.closest("[data-ping-park]"); if (pp) openSheet({park:pp.dataset.pingPark, date:S.day, ...(S.time != null ? {start:S.time, end:S.time + 60} : {})});
 });
 $("#fab").addEventListener("click", () => openSheet());
+$("#v-events").addEventListener("click", e => {
+  const b = e.target.closest("[data-share-ev]"); if (!b) return;
+  const ev = DOG_EVENTS.find(x => x.id === b.dataset.shareEv); if (!ev) return;
+  navigator.share({title:ev.title, text:`${ev.title}, ${dayLabel(ev.date)} ${ev.time} at ${ev.place}. Bring the dogs?`, url:ev.url}).catch(() => {});
+});
 $("#installBtn").addEventListener("click", doInstall);
 $("#installCard").addEventListener("click", e => { if (e.target.closest("#installNow")) doInstall(); });
 

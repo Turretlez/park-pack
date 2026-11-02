@@ -5,6 +5,7 @@ A When2Meet-style app for downtown Boston dog owners.
 - **Map**: a pocket map of downtown parks (Common, Public Garden, Esplanade, Post Office Sq, City Hall, Greenway, Columbus Park, Fort Point, Peters Park dog run). Pins show how many dogs pinged each park for a day; a time slider narrows it to who's there at, say, 5 PM. Dashed rings mark "regulars": dogs whose usual week and favorite parks line up.
 - **Ping a park**: pick a park, day, and time window ("Leaving now, 1 hr" is one tap).
 - **Find a time**: paint your usual free time on a weekly grid. The "Everyone" view stacks the pack's weeks into a heatmap, and "Best times" suggests windows plus a park.
+- **Events**: dog-friendly events around Boston this week and coming up (dog bar nights, adoption days, markets that allow dogs), plus dog-friendly spots for any day. Edit `DOG_EVENTS` in `index.html` each week; past events drop off on their own.
 - **Pack**: every dog's card (size, how they do with other dogs, notes, next ping).
 
 ## Files
