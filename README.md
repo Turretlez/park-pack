@@ -14,9 +14,10 @@ A When2Meet-style app for downtown Boston dog owners.
 |---|---|
 | `index.html` | The whole app (HTML/CSS/JS, no build step) |
 | `manifest.webmanifest`, `sw.js`, `icons/` | What makes it installable on iPhone and Android, and lets it open offline |
-| `firebase-config.js` | Shared-pack backend config (null = each phone keeps its own data) |
+| `firebase-config.js` | Shared-pack backend config: Firebase project `park-pack-a7868`, free Spark plan (null = each phone keeps its own data) |
 | `firestore.rules` | Firestore security rules: everyone reads, each phone writes only its own dog |
 | `tools/make_icons.py` | Redraws the paw icons |
+| `tools/make_qr_card.py` | Makes `park-pack-qr.png`, the QR card to share (opens the install screen via `?join`) |
 | `tools/build_artifact.py` | Builds `dist/artifact.html`, the shared claude.ai preview |
 
 ## Where data lives
