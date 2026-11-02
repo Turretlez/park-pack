@@ -355,7 +355,7 @@ button{cursor:pointer}
 
 /* ---------- constants ---------- */
 const PARKS = [
-  {id:"rowes",      name:"Greenway at Rowes Wharf", short:"Rowes Wharf lawn", x:306, y:414, home:true, note:"The usual spot. Greenway lawn between India St and High St, across from Harbor Towers."},
+  {id:"rowes",      name:"Greenway Meetup", short:"Greenway Meetup", x:306, y:414, home:true, note:"The main spot. Greenway lawn at Rowes Wharf, between India St and High St, across from Harbor Towers."},
   {id:"longwharf",  name:"Greenway at Long Wharf",  short:"Long Wharf",      x:293, y:348, note:"Wharf District lawns by the Rings Fountain."},
   {id:"columbus",   name:"Columbus Waterfront Park",short:"Columbus Park",   x:292, y:261, note:"Harbor breeze and the long trellis walk."},
   {id:"northmeadow",name:"North Meadow on the Greenway", short:"North Meadow", x:141, y:154, note:"Greenway lawn by Haymarket."},
@@ -640,7 +640,7 @@ function renderMap(){
     h += `<circle class="body" r="${r}"/>`;
     if (n) h += `<text class="count">${n}</text>`;
     h += `<text class="name" y="${r + 12}">${esc(pk.short)}</text>`;
-    if (pk.home) h += `<text class="homelbl" y="${-r - 6}">USUAL SPOT</text>`;
+    if (pk.home) h += `<text class="homelbl" y="${-r - 6}">MAIN SPOT</text>`;
     h += `</g>`;
   }
   g.innerHTML = h;
@@ -653,7 +653,7 @@ function renderParkPanel(all, vis){
   const el = $("#parkPanel");
   if (!S.park){
     const rows = PARKS.map(pk => ({pk, n:new Set(vis.filter(p => p.park === pk.id).map(p => p.dog.uid)).size, list:vis.filter(p => p.park === pk.id)}))
-      .sort((a,b) => b.n - a.n || a.pk.name.localeCompare(b.pk.name));
+      .sort((a,b) => (b.pk.home ? 1 : 0) - (a.pk.home ? 1 : 0) || b.n - a.n || a.pk.name.localeCompare(b.pk.name));
     const max = Math.max(1, ...rows.map(r => r.n));
     el.innerHTML = `<div class="panel-head"><h3>Parks ${S.time == null ? "" : "at " + fmt(S.time)}</h3><span class="small muted">Tap a park for details</span></div>
       <div class="rows">${rows.map(r => `<button class="row parkrow" data-park="${r.pk.id}">
