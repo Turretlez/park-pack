@@ -217,6 +217,17 @@ a.linkbtn{text-decoration:none}
 .tag.check{background:transparent;border:1px solid var(--live);color:var(--live)}
 .tag.near{background:var(--park);color:var(--on-park)}
 
+/* welcome / install screen (QR code lands here) */
+.welcome{position:fixed;inset:0;z-index:60;background:var(--bg);overflow-y:auto;padding:calc(28px + env(safe-area-inset-top,0px)) max(20px,env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) max(20px,env(safe-area-inset-left,0px))}
+.welcome .in{max-width:420px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+.welcome h2{font-size:30px}
+.welcome .lede{font-size:16px;color:var(--muted)}
+.wsteps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;counter-reset:w}
+.wsteps li{background:var(--surface);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow);display:flex;gap:12px;align-items:center;font-size:15px;counter-increment:w}
+.wsteps li::before{content:counter(w);flex:none;width:28px;height:28px;border-radius:50%;background:var(--park);color:var(--on-park);display:grid;place-items:center;font:800 15px var(--f-display)}
+.wsteps svg{vertical-align:-4px}
+.welcome .btn{font-size:17px;padding:15px}
+
 /* form */
 .form{display:flex;flex-direction:column;gap:14px}
 .field{display:flex;flex-direction:column;gap:6px}
@@ -381,6 +392,7 @@ a.linkbtn{text-decoration:none}
 <div class="scrim" id="scrim" hidden></div>
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" hidden><div class="in" id="sheetIn"></div></div>
 <div class="toast" id="toast" role="status" hidden></div>
+<div class="welcome" id="welcome" role="dialog" aria-modal="true" aria-labelledby="welcomeTitle" hidden><div class="in" id="welcomeIn"></div></div>
 
 <script>
 (() => {
@@ -934,6 +946,7 @@ const isStandalone = () => matchMedia("(display-mode: standalone)").matches || n
 const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 const canInstallHere = () => S.mode !== "claude" && /^https?:$/.test(location.protocol) && !isStandalone();
 function renderInstall(){
+  renderWelcome();
   const card = $("#installCard"), show = canInstallHere();
   $("#installBtn").hidden = !(show && installEvt);
   card.hidden = !show;
@@ -944,6 +957,33 @@ function renderInstall(){
       ? `<h3>Add Park Pack to your iPhone</h3><ol class="steps small"><li>Open this page in <b>Safari</b>.</li><li>Tap the <b>Share</b> button (square with an arrow).</li><li>Choose <b>Add to Home Screen</b>, then <b>Add</b>.</li></ol>`
       : `<h3>Add Park Pack to your phone</h3><ol class="steps small"><li>Open this page in <b>Chrome</b>.</li><li>Tap the <b>⋮</b> menu.</li><li>Choose <b>Install app</b> or <b>Add to Home screen</b>.</li></ol>`;
 }
+/* Welcome screen: shows for people arriving from the QR code (?join) or on their first phone visit. */
+const UA = navigator.userAgent;
+const inAppBrowser = () => /Instagram|FBAN|FBAV|Snapchat|Line\/|GSA\/|WhatsApp|Messenger/i.test(UA);
+const isAndroid = () => /Android/i.test(UA);
+const isPhone = () => isIOS() || isAndroid();
+const SHARE_ICON = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Share"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M6 11H5v10h14V11h-1"/></svg>`;
+let welcomeOn = canInstallHere() && (new URLSearchParams(location.search).has("join") || (isPhone() && !ls.get("pp.welcomed", false)));
+function renderWelcome(){
+  const w = $("#welcome");
+  if (!welcomeOn || !canInstallHere()){ w.hidden = true; return; }
+  let steps;
+  if (inAppBrowser()) steps = isIOS()
+    ? `<ol class="wsteps"><li><span>Tap <b>•••</b> or the compass at the top or bottom of this screen.</span></li><li><span>Choose <b>Open in Safari</b> (or Open in browser).</span></li><li><span>You'll get the install steps there.</span></li></ol>`
+    : `<ol class="wsteps"><li><span>Tap <b>⋮</b> at the top of this screen.</span></li><li><span>Choose <b>Open in Chrome</b> (or Open in browser).</span></li><li><span>Tap <b>Install</b> there.</span></li></ol>`;
+  else if (installEvt) steps = `<button class="btn" id="welcomeInstall">Install Park Pack</button><p class="small muted" style="text-align:center">Free. No account, no App Store.</p>`;
+  else if (isIOS()) steps = /CriOS|FxiOS|EdgiOS/.test(UA)
+    ? `<ol class="wsteps"><li><span>Tap ${SHARE_ICON} <b>Share</b> in the address bar.</span></li><li><span>Scroll down and tap <b>Add to Home Screen</b>.</span></li><li><span>Tap <b>Add</b>. Park Pack is on your home screen.</span></li></ol>`
+    : `<ol class="wsteps"><li><span>Tap ${SHARE_ICON} <b>Share</b> at the bottom of Safari.</span></li><li><span>Scroll down and tap <b>Add to Home Screen</b>.</span></li><li><span>Tap <b>Add</b>. Park Pack is on your home screen.</span></li></ol>`;
+  else steps = `<ol class="wsteps"><li><span>Tap <b>⋮</b> at the top right of Chrome.</span></li><li><span>Tap <b>Install app</b> or <b>Add to Home screen</b>.</span></li><li><span>Tap <b>Install</b>. Park Pack is on your home screen.</span></li></ol>`;
+  $("#welcomeIn").innerHTML = `
+    <svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="var(--park)"/><g fill="var(--ball)"><ellipse cx="32" cy="40" rx="11" ry="9.5"/><ellipse cx="18.5" cy="27" rx="5" ry="6.2"/><ellipse cx="27" cy="19" rx="5" ry="6.4"/><ellipse cx="37" cy="19" rx="5" ry="6.4"/><ellipse cx="45.5" cy="27" rx="5" ry="6.2"/></g></svg>
+    <div><h2 id="welcomeTitle">Park Pack</h2><p class="lede" style="margin-top:6px">For the dogs of downtown Boston. See who's at the Greenway right now, ping where you're headed, and find times when the pack overlaps.</p></div>
+    <div class="label">Get the app${isIOS() ? " on your iPhone" : isAndroid() ? " on your Android" : ""}</div>
+    ${steps}
+    <button class="linkbtn" id="welcomeSkip" style="align-self:center">Not now, just look around</button>`;
+  w.hidden = false;
+}
 async function doInstall(){
   if (!installEvt) return;
   installEvt.prompt();
@@ -951,7 +991,7 @@ async function doInstall(){
   installEvt = null; renderInstall();
 }
 addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; renderInstall(); });
-addEventListener("appinstalled", () => { installEvt = null; renderInstall(); toast("Installed. Find Park Pack on your home screen."); });
+addEventListener("appinstalled", () => { installEvt = null; welcomeOn = false; ls.set("pp.welcomed", true); renderInstall(); toast("Installed. Find Park Pack on your home screen."); });
 if ("serviceWorker" in navigator && !window.claude && (location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1"))
   navigator.serviceWorker.register("sw.js").catch(() => {});
 
@@ -1041,6 +1081,10 @@ $("#v-events").addEventListener("click", e => {
 });
 $("#installBtn").addEventListener("click", doInstall);
 $("#installCard").addEventListener("click", e => { if (e.target.closest("#installNow")) doInstall(); });
+$("#welcome").addEventListener("click", e => {
+  if (e.target.closest("#welcomeInstall")) doInstall();
+  if (e.target.closest("#welcomeSkip")){ welcomeOn = false; ls.set("pp.welcomed", true); renderWelcome(); }
+});
 
 $("#segMine").addEventListener("click", () => { S.planMode = "mine"; S.pick = null; renderPlan(); });
 $("#segGroup").addEventListener("click", () => { S.planMode = "group"; renderPlan(); });
