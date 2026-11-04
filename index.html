@@ -261,7 +261,7 @@ a.linkbtn{text-decoration:none}
 .grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:4px auto 4px}
 .wrapchips{display:flex;flex-wrap:wrap;gap:6px}
 
-.toast{position:fixed;left:50%;transform:translateX(-50%);top:calc(12px + env(safe-area-inset-top,0px));z-index:50;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:600;font-size:14px;max-width:calc(100% - 48px);text-align:center;box-shadow:var(--shadow)}
+.toast{z-index:70 !important;position:fixed;left:50%;transform:translateX(-50%);top:calc(12px + env(safe-area-inset-top,0px));z-index:50;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:600;font-size:14px;max-width:calc(100% - 48px);text-align:center;box-shadow:var(--shadow)}
 .empty{padding:18px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:14px}
 .steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
 @media (min-width:700px){ .fab{bottom:calc(84px + env(safe-area-inset-bottom,0px))} }
@@ -370,7 +370,6 @@ a.linkbtn{text-decoration:none}
       <p class="muted" style="margin-top:4px">This is what other owners see on the map and in the pack.</p>
     </div>
     <div class="panel" id="installCard" hidden></div>
-    <div class="panel" id="friendsCard"></div>
     <form class="panel form" id="dogForm" autocomplete="off">
       <div class="two">
         <div class="field"><label for="f-name">Dog's name</label><input class="input" id="f-name" maxlength="24" required placeholder="Moose"></div>
@@ -389,6 +388,7 @@ a.linkbtn{text-decoration:none}
       <button class="btn" type="submit" id="saveDog">Save</button>
       <p class="small muted" id="formNote" hidden></p>
     </form>
+    <div class="panel" id="friendsCard"></div>
     <div class="panel">
       <div class="panel-head"><h3>Your upcoming pings</h3></div>
       <div class="rows" id="myPings"></div>
@@ -757,7 +757,7 @@ function notifyPing({p, d}){
   const title = `${d.doc.dog.name} is heading to ${PARK[p.park].short}`;
   const body = `${dayLabel(p.date)} ${range(p.start, p.end)}${p.note ? " · " + p.note : ""}`;
   if (!document.hidden){ toast(`${title}, ${body.charAt(0).toLowerCase() + body.slice(1)}`); return; }
-  if (!S.alerts || !("Notification" in window) || Notification.permission !== "granted") return;
+  if (!alertsOn()) return;
   const opts = {body, tag:pingKey(d.uid, p), icon:"icons/icon-192.png", badge:"icons/icon-192.png"};
   (navigator.serviceWorker ? navigator.serviceWorker.getRegistration() : Promise.resolve(null))
     .then(r => r ? r.showNotification(title, opts) : new Notification(title, opts)).catch(() => {});
@@ -774,7 +774,9 @@ async function toggleAlerts(){
   else toast("Friend alerts on.");
   renderAll();
 }
+function alertsOn(){ return S.alerts && "Notification" in window && Notification.permission === "granted"; }
 function renderFriendsCard(){
+  if (S.alerts && "Notification" in window && Notification.permission === "denied"){ S.alerts = false; ls.set("pp.alerts", false); }
   const el = $("#friendsCard");
   if (S.mode === "local"){ el.hidden = true; return; }
   el.hidden = false;
@@ -1169,7 +1171,7 @@ const inAppBrowser = () => /Instagram|FBAN|FBAV|Snapchat|Line\/|GSA\/|WhatsApp|M
 const isAndroid = () => /Android/i.test(UA);
 const isPhone = () => isIOS() || isAndroid();
 const SHARE_ICON = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Share"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M6 11H5v10h14V11h-1"/></svg>`;
-let welcomeOn = canInstallHere() && ((new URLSearchParams(location.search).has("join") || new URLSearchParams(location.search).has("friend")) || (isPhone() && !ls.get("pp.welcomed", false)));
+let welcomeOn = canInstallHere() && ((new URLSearchParams(location.search).has("join") || (new URLSearchParams(location.search).has("friend") && !ls.get("pp.welcomed", false) && !S.my.dog?.name)) || (isPhone() && !ls.get("pp.welcomed", false)));
 function renderWelcome(){
   const w = $("#welcome");
   if (!welcomeOn || !canInstallHere()){ w.hidden = true; return; }
