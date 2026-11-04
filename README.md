@@ -6,6 +6,9 @@ A When2Meet-style app for downtown Boston dog owners.
 - **Ping a park**: pick a park, day, and time window ("Leaving now, 1 hr" is one tap).
 - **Find a time**: paint your usual free time on a weekly grid. The "Everyone" view stacks the pack's weeks into a heatmap, and "Best times" suggests windows plus a park.
 - **Events**: dog-friendly events around Boston this week and coming up (dog bar nights, adoption days, markets that allow dogs), plus dog-friendly spots for any day. Edit `DOG_EVENTS` in `index.html` each week; past events drop off on their own.
+- **Friends**: tap Add friend on a dog in the Pack tab, or share your friend link (`?friend=<uid>`). Friends get a yellow ring, a "Friends out today" list on the map, and a Friends-only map filter. People who added you show up under "Added you as a friend".
+- **Friend alerts**: turn on in My dog. A notification when a friend adds a new ping, and nobody else. Without a push server these arrive while the app is open or was opened recently.
+- **Location**: the locate button on the map shows a blue dot, the nearest park and a one-tap Check in. Coordinates never leave the phone; only the park you check in to is shared.
 - **Pack**: every dog's card (size, how they do with other dogs, notes, next ping).
 
 ## Files

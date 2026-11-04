@@ -228,6 +228,16 @@ a.linkbtn{text-decoration:none}
 .wsteps svg{vertical-align:-4px}
 .welcome .btn{font-size:17px;padding:15px}
 
+/* friends, location */
+.av.fr{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ball)}
+.locbtn{position:absolute;right:10px;top:10px;width:42px;height:42px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);display:grid;place-items:center;box-shadow:var(--shadow)}
+.locbtn.on{color:#2F7DE1}
+#map .meacc{fill:#2F7DE1;opacity:.14}
+#map .medot{fill:#2F7DE1;stroke:#fff;stroke-width:2.5}
+.here{display:flex;align-items:center;gap:10px;background:var(--park-soft);border-radius:14px;padding:10px 12px;font-size:14px}
+.here .grow{flex:1;min-width:0}
+.friendrow{width:100%;background:none;border:0;text-align:left}
+
 /* form */
 .form{display:flex;flex-direction:column;gap:14px}
 .field{display:flex;flex-direction:column;gap:6px}
@@ -275,6 +285,8 @@ a.linkbtn{text-decoration:none}
     <p class="summary" id="summary">Loading the pack…</p>
     <div class="exbar" id="exbar" hidden><span id="exText">Showing example dogs so you can see how it works. They aren't real.</span><button class="linkbtn" id="exHide">Hide</button></div>
     <div class="chips" id="dayChips" role="tablist" aria-label="Day"></div>
+    <div class="panel" id="friendsOut" hidden></div>
+    <div class="chips" id="whoChips" hidden></div>
     <div class="mapwrap">
 <!-- MAP START -->
 <svg id="map" viewBox="0 0 400 601" role="img" aria-label="Map of downtown Boston, the Greenway and the North End">
@@ -293,7 +305,9 @@ a.linkbtn{text-decoration:none}
 <g id="pins"></g>
 </svg>
 <!-- MAP END -->
+      <button class="locbtn" id="locBtn" aria-label="Show where I am"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
     </div>
+    <div class="here" id="hereBar" hidden></div>
     <div class="maplegend"><span><i style="background:var(--park)"></i>pinged</span><span><i style="background:var(--live)"></i>there now</span><span><i style="border:1.5px dashed var(--park)"></i>regulars (pick a time)</span><span style="margin-left:auto">Map data © OpenStreetMap contributors</span></div>
     <div class="timebar">
       <button class="chip on" id="allDay">All day</button>
@@ -344,6 +358,8 @@ a.linkbtn{text-decoration:none}
       <h2>The pack</h2>
       <p class="muted" style="margin-top:4px" id="packLede">Every dog on Park Pack, with where they're headed next.</p>
     </div>
+    <div class="chips" id="packFilter"></div>
+    <div class="panel" id="friendReqs" hidden></div>
     <div class="pack" id="packList"></div>
   </section>
 
@@ -354,6 +370,7 @@ a.linkbtn{text-decoration:none}
       <p class="muted" style="margin-top:4px">This is what other owners see on the map and in the pack.</p>
     </div>
     <div class="panel" id="installCard" hidden></div>
+    <div class="panel" id="friendsCard"></div>
     <form class="panel form" id="dogForm" autocomplete="off">
       <div class="two">
         <div class="field"><label for="f-name">Dog's name</label><input class="input" id="f-name" maxlength="24" required placeholder="Moose"></div>
@@ -416,6 +433,12 @@ const PARKS = [
 const HOODS = [["NORTH END",227,150],["WATERFRONT",350,300],["FINANCIAL DISTRICT",170,466],["DOWNTOWN",92,380],["FORT POINT",370,585]];
 const WATER_LABELS = [["Harbor",370,178],["Charles River",42,22],["Fort Point Channel",300,592]];
 const PARK = Object.fromEntries(PARKS.map(p => [p.id, p]));
+// Real-world spot for each pin (same table as tools/build_map.py), for "you are here" and check-ins.
+const PARK_LL = {rowes:[42.35622,-71.05123], longwharf:[42.35842,-71.0518], columbus:[42.3613,-71.05188], ruff:[42.36679,-71.05679],
+  langone:[42.36855,-71.05498], prado:[42.36577,-71.05361], northmeadow:[42.36486,-71.05865], cityhall:[42.3603,-71.0580],
+  pos:[42.35628,-71.05579], dewey:[42.35374,-71.05422], fortpoint:[42.35193,-71.04987], common:[42.3556,-71.0638]};
+const MAPBOX = {W:-71.0650, E:-71.0470, S:42.3500, N:42.3700, VW:400, VH:601};
+const M_PER_UNIT = (MAPBOX.E - MAPBOX.W) * 111320 * 0.73925 / MAPBOX.VW;
 /* Dog events. Refresh weekly: add new ones; past ones drop off on their own.
    date/endDate YYYY-MM-DD. trip: rough trip from the Greenway. near: walkable or a short ride from downtown.
    check: only found on a listing site or an old-looking page, so not confirmed. */
@@ -486,12 +509,12 @@ const today = () => dateKey(new Date());
 const dayLabel = k => { const t = today(); if (k === t) return "Today"; if (k === dateKey(addDays(new Date(),1))) return "Tomorrow"; const d = fromKey(k); return `${DAYS[wday(d)]} ${d.getDate()}`; };
 const uidGen = () => Math.random().toString(36).slice(2, 10);
 const emptyAvail = () => Array.from({length:7}, () => "0".repeat(NS));
-const blankDoc = () => ({dog:null, ownerName:"", favParks:[], avail:emptyAvail(), pings:[]});
+const blankDoc = () => ({dog:null, ownerName:"", favParks:[], avail:emptyAvail(), pings:[], friends:[]});
 
 function av(dog, cls=""){
   const c = COAT[dog?.doc?.dog?.coat] || COATS[0];
   const ini = (dog?.doc?.dog?.name || "?").trim().charAt(0).toUpperCase();
-  return `<span class="av ${cls} ${dog?.example ? "ex" : ""}" style="--c:${c.c};--t:${c.t}" aria-hidden="true">${esc(ini)}</span>`;
+  return `<span class="av ${cls} ${dog?.example ? "ex" : ""} ${dog && !dog.mine && isFriend(dog.uid) ? "fr" : ""}" style="--c:${c.c};--t:${c.t}" aria-hidden="true">${esc(ini)}</span>`;
 }
 
 /* ---------- example pack (local only, never saved) ---------- */
@@ -537,9 +560,13 @@ const S = {
   pick:null,               // [day, slot] in group view
   hideEx:ls.get("pp.hideEx", false),
   examples:examples(),
+  who:ls.get("pp.who", "all"),         // map: all | friends
+  packFilter:"all",
+  alerts:ls.get("pp.alerts", false),
+  pendingFriend:new URLSearchParams(location.search).get("friend"),
 };
 if (!Array.isArray(S.my.avail) || S.my.avail.length !== 7) S.my.avail = emptyAvail();
-S.my.pings = S.my.pings || []; S.my.favParks = S.my.favParks || [];
+S.my.pings = S.my.pings || []; S.my.favParks = S.my.favParks || []; S.my.friends = S.my.friends || [];
 
 function realDogs(){
   const out = [];
@@ -571,6 +598,8 @@ function onDocs(list){
   const n = Object.values(next).filter(d => d?.dog?.name).length;
   setStatus(`Live · ${n} ${n === 1 ? "dog" : "dogs"}`, true);
   resolveNames();
+  handlePendingFriend();
+  checkFriendPings();
   renderAll();
 }
 function normalize(d){
@@ -578,6 +607,7 @@ function normalize(d){
   if (!Array.isArray(x.avail) || x.avail.length !== 7) x.avail = emptyAvail();
   x.pings = Array.isArray(x.pings) ? x.pings : [];
   x.favParks = Array.isArray(x.favParks) ? x.favParks : [];
+  x.friends = Array.isArray(x.friends) ? x.friends : [];
   return x;
 }
 async function resolveNames(){
@@ -662,7 +692,7 @@ function toast(msg){ const t = $("#toast"); t.textContent = msg; t.hidden = fals
 /* ---------- pings ---------- */
 function pingsOn(dk){
   const out = [];
-  for (const d of allDogs()) for (const p of d.doc.pings || []) if (p.date === dk && PARK[p.park]) out.push({...p, dog:d});
+  for (const d of mapDogs()) for (const p of d.doc.pings || []) if (p.date === dk && PARK[p.park]) out.push({...p, dog:d});
   return out.sort((a,b) => a.start - b.start);
 }
 const covers = (p, m) => p.start <= m && m < p.end;
@@ -671,6 +701,164 @@ function regularsAt(parkId, dk, m, exclude){
   const d = wday(fromKey(dk)), s = Math.floor((m - START)/STEP);
   if (s < 0 || s >= NS) return [];
   return allDogs().filter(x => !exclude.has(x.uid) && (x.doc.favParks || []).includes(parkId) && x.doc.avail?.[d]?.[s] === "1");
+}
+
+/* ---------- FRIENDS ---------- */
+function isFriend(uid){ return (S.my.friends || []).includes(uid); }
+function friendDogs(){ return realDogs().filter(d => isFriend(d.uid)); }
+function mapDogs(){ return S.who === "friends" ? allDogs().filter(d => d.mine || isFriend(d.uid)) : allDogs(); }
+function toggleFriend(uid){
+  if (S.readOnly){ toast("You're viewing only, so you can't add friends yet."); return; }
+  const on = !isFriend(uid);
+  S.my.friends = on ? [...S.my.friends, uid].slice(-200) : S.my.friends.filter(x => x !== uid);
+  if (on) markSeenFor(uid);
+  queueSave(0);
+  const name = S.docs[uid]?.dog?.name || "them";
+  toast(on ? `Added ${name}. You'll hear when they ping a park.` : `Removed ${name} from friends.`);
+  renderAll();
+}
+function handlePendingFriend(){
+  const pf = S.pendingFriend;
+  if (!pf || S.mode === "local" || !S.loadedMine) return;
+  S.pendingFriend = null;
+  try { history.replaceState(null, "", location.pathname); } catch {}
+  if (pf === S.uid) return;
+  if (!isFriend(pf)){ S.my.friends = [...S.my.friends, pf].slice(-200); markSeenFor(pf); queueSave(0); }
+  toast(`${S.docs[pf]?.dog?.name || "Your friend"} is in your friends now.`);
+}
+function friendLink(){ return `${location.origin}${location.pathname}?friend=${encodeURIComponent(S.uid)}`; }
+async function shareFriendLink(){
+  if (!S.my.dog?.name){ toast("Add your dog first so friends know who you are."); setTab("me"); return; }
+  const url = friendLink(), text = `Add ${S.my.dog.name} as a friend on Park Pack`;
+  if (navigator.share){ try { await navigator.share({title:"Park Pack", text, url}); } catch {} return; }
+  try { await navigator.clipboard.writeText(url); toast("Friend link copied. Paste it to a friend."); }
+  catch { prompt("Copy your friend link:", url); }
+}
+
+/* Friend alerts: a notification when a friend adds a new ping. Pings already seen are remembered on this phone. */
+const seen = new Set(ls.get("pp.seen", []));
+const pingKey = (uid, p) => `${uid}:${p.id}`;
+const upcoming = p => p.date > today() || (p.date === today() && p.end > nowMin());
+function saveSeen(){ ls.set("pp.seen", [...seen].slice(-600)); }
+function markSeenFor(uid){ for (const p of S.docs[uid]?.pings || []) seen.add(pingKey(uid, p)); saveSeen(); }
+function checkFriendPings(){
+  const fresh = [];
+  for (const d of friendDogs()) for (const p of d.doc.pings || []){
+    const k = pingKey(d.uid, p);
+    if (seen.has(k) || !PARK[p.park] || !upcoming(p)) continue;
+    seen.add(k); fresh.push({p, d});
+  }
+  if (!ls.get("pp.seenInit", false)){ ls.set("pp.seenInit", true); saveSeen(); return; }   // first run: no flood
+  if (!fresh.length) return;
+  saveSeen();
+  fresh.slice(0, 3).forEach(notifyPing);
+}
+function notifyPing({p, d}){
+  const title = `${d.doc.dog.name} is heading to ${PARK[p.park].short}`;
+  const body = `${dayLabel(p.date)} ${range(p.start, p.end)}${p.note ? " · " + p.note : ""}`;
+  if (!document.hidden){ toast(`${title}, ${body.charAt(0).toLowerCase() + body.slice(1)}`); return; }
+  if (!S.alerts || !("Notification" in window) || Notification.permission !== "granted") return;
+  const opts = {body, tag:pingKey(d.uid, p), icon:"icons/icon-192.png", badge:"icons/icon-192.png"};
+  (navigator.serviceWorker ? navigator.serviceWorker.getRegistration() : Promise.resolve(null))
+    .then(r => r ? r.showNotification(title, opts) : new Notification(title, opts)).catch(() => {});
+}
+async function toggleAlerts(){
+  if (S.alerts){ S.alerts = false; ls.set("pp.alerts", false); renderAll(); return; }
+  if (!("Notification" in window)){
+    toast(isIOS() && !isStandalone() ? "Add Park Pack to your home screen first, then turn on alerts." : "This browser can't show alerts.");
+    return;
+  }
+  const r = await Notification.requestPermission();
+  S.alerts = r === "granted"; ls.set("pp.alerts", S.alerts);
+  if (!S.alerts) toast("Alerts are blocked. Allow notifications for Park Pack in your phone's settings.");
+  else toast("Friend alerts on.");
+  renderAll();
+}
+function renderFriendsCard(){
+  const el = $("#friendsCard");
+  if (S.mode === "local"){ el.hidden = true; return; }
+  el.hidden = false;
+  const n = friendDogs().length;
+  const canNotify = "Notification" in window;
+  const alertNote = S.alerts ? "You'll get a notification when a friend pings a park. No one else."
+    : canNotify ? "Get a notification when a friend pings a park. No one else."
+    : isIOS() ? "On iPhone, add Park Pack to your home screen first (iOS 16.4 or newer)." : "This browser can't show notifications.";
+  el.innerHTML = `<div class="panel-head"><h3>Friends</h3><span class="small muted">${n ? `${n} ${n === 1 ? "friend" : "friends"}` : ""}</span></div>
+    <p class="small muted">Tap <b>Add friend</b> on a dog in the Pack tab, or send your friend link.${n ? "" : " Friends show with a yellow ring on the map."}</p>
+    ${S.mode === "firebase" ? `<button class="btn ghost" id="shareFriend">Share my friend link</button>` : ""}
+    <div class="row" style="border-top:1px solid var(--line);padding-top:12px"><div class="grow"><b>Friend alerts</b><div class="small muted">${alertNote}</div></div>
+      ${canNotify || S.alerts ? `<button class="btn sm ${S.alerts ? "ghost" : ""}" id="alertBtn">${S.alerts ? "Turn off" : "Turn on"}</button>` : ""}</div>
+    ${S.alerts ? `<p class="small muted">Phones pause web apps in the background, so alerts come in while Park Pack is open or was opened recently.</p>` : ""}`;
+}
+function renderFriendsOut(){
+  const el = $("#friendsOut"), list = [];
+  for (const d of friendDogs()) for (const p of d.doc.pings || []) if (PARK[p.park] && p.date === today() && upcoming(p)) list.push({p, d});
+  list.sort((a, b) => a.p.start - b.p.start);
+  el.hidden = !list.length;
+  if (!list.length) return;
+  el.innerHTML = `<h3>Friends out today</h3><div class="rows">${list.slice(0, 6).map(({p, d}) => `<button class="row friendrow" data-park="${p.park}">${av(d, "sm")}
+      <div class="grow"><b>${esc(d.doc.dog.name)}</b> <span class="small muted">at ${esc(PARK[p.park].short)}</span></div>
+      <div style="text-align:right"><div class="t">${range(p.start, p.end)}</div>${isLive(p) ? `<div class="livetag">There now</div>` : ""}</div></button>`).join("")}</div>`;
+}
+
+/* ---------- LOCATION (stays on this phone; only the park you check in to is shared) ---------- */
+const geo = {watch:null, pos:null, acc:null, err:null, want:false};
+function distM([a, b], [c, d]){
+  const r = Math.PI / 180, x = (d - b) * r * Math.cos((a + c) / 2 * r), y = (c - a) * r;
+  return Math.sqrt(x * x + y * y) * 6371000;
+}
+function nearestPark(){
+  if (!geo.pos) return null;
+  let best = null;
+  for (const pk of PARKS){ const m = distM(geo.pos, PARK_LL[pk.id]); if (!best || m < best.m) best = {pk, m}; }
+  return best;
+}
+function startLocate(fromTap){
+  if (!navigator.geolocation){ if (fromTap) toast("Location isn't available on this browser."); return; }
+  geo.want = true;
+  if (geo.watch != null) return;
+  geo.watch = navigator.geolocation.watchPosition(p => {
+    geo.pos = [p.coords.latitude, p.coords.longitude]; geo.acc = p.coords.accuracy; geo.err = null;
+    ls.set("pp.loc", true); renderLoc();
+  }, e => {
+    geo.err = e.code; stopLocate(); geo.want = false;
+    if (fromTap) toast(e.code === 1 ? "Location is blocked. Allow it for Park Pack in your phone's settings." : "Couldn't find you. Try again outside.");
+    if (e.code === 1) ls.set("pp.loc", false);
+    renderLoc();
+  }, {enableHighAccuracy:true, maximumAge:20000, timeout:20000});
+  renderLoc();
+}
+function stopLocate(){ if (geo.watch != null) navigator.geolocation.clearWatch(geo.watch); geo.watch = null; }
+function renderLoc(){
+  $("#locBtn").classList.toggle("on", geo.watch != null);
+  const g = $("#meLoc"), bar = $("#hereBar");
+  if (!geo.pos){ g.innerHTML = ""; bar.hidden = true; return; }
+  const [lat, lon] = geo.pos, {W, E, S: So, N, VW, VH} = MAPBOX;
+  const x = (lon - W) / (E - W) * VW, y = (N - lat) / (N - So) * VH;
+  const onMap = x >= 0 && x <= VW && y >= 0 && y <= VH;
+  g.innerHTML = onMap ? `<circle class="meacc" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${Math.min(90, Math.max(8, geo.acc / M_PER_UNIT)).toFixed(1)}"/><circle class="medot" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="6"/>` : "";
+  const near = nearestPark(), at = near && near.m <= 150;
+  const mine = at && S.my.pings.find(p => p.park === near.pk.id && p.date === today() && covers(p, nowMin()));
+  bar.hidden = false;
+  if (!onMap && !at){
+    bar.innerHTML = `<div class="grow">You're about ${(distM(geo.pos, PARK_LL.rowes) / 1609).toFixed(1)} miles from Greenway Meetup, off this map.</div>`;
+  } else if (at){
+    bar.innerHTML = `<div class="grow">You're at <b>${esc(near.pk.name)}</b>.${mine ? ` Checked in until ${fmt(mine.end)}.` : ""}</div>
+      ${mine || S.readOnly ? "" : `<button class="btn sm ball" data-checkin="${near.pk.id}">Check in</button>`}`;
+  } else {
+    bar.innerHTML = `<div class="grow">Nearest: <b>${esc(near.pk.short)}</b>, about ${Math.max(1, Math.round(near.m / 80))} min walk.</div>
+      <button class="btn sm ghost" data-ping-park="${near.pk.id}">Ping it</button>`;
+  }
+}
+function checkIn(park){
+  if (!S.my.dog?.name){ openSheet({park}); return; }
+  const start = Math.max(START, Math.floor(nowMin() / 30) * 30), end = Math.min(start + 60, START + NS * STEP);
+  if (end <= start || nowMin() >= START + NS * STEP){ toast("Check-ins close at 10 PM."); return; }
+  S.my.pings.push({id:uidGen(), date:today(), park, start, end});
+  queueSave(0);
+  S.day = today(); S.park = park; S.time = null;
+  toast(`Checked in at ${PARK[park].short} until ${fmt(end)}.`);
+  renderAll();
 }
 
 /* ---------- MAP ---------- */
@@ -684,6 +872,11 @@ function renderDayChips(){
 }
 function renderMap(){
   renderDayChips();
+  renderFriendsOut();
+  const nf = friendDogs().length;
+  if (!nf && S.who === "friends") S.who = "all";
+  $("#whoChips").hidden = !nf;
+  $("#whoChips").innerHTML = `<button class="chip ${S.who === "all" ? "on" : ""}" data-who="all">Everyone</button><button class="chip ${S.who === "friends" ? "on" : ""}" data-who="friends">Friends only<span class="n">${nf}</span></button>`;
   const all = pingsOn(S.day);
   const vis = S.time == null ? all : all.filter(p => covers(p, S.time));
   // summary
@@ -725,6 +918,7 @@ function renderMap(){
   $("#allDay").classList.toggle("on", S.time == null);
   $("#timeOut").textContent = S.time == null ? "Any time" : fmt(S.time);
   renderParkPanel(all, vis);
+  renderLoc();
 }
 function renderParkPanel(all, vis){
   const el = $("#parkPanel");
@@ -870,13 +1064,24 @@ function renderBest(){
 
 /* ---------- PACK ---------- */
 function renderPack(){
-  const dogs = allDogs(), t = today();
+  const t = today();
+  const nf = friendDogs().length;
+  if (!nf) S.packFilter = "all";
+  const rank = d => d.mine ? 2 : isFriend(d.uid) ? 1 : 0;
+  const dogs = allDogs().filter(d => S.packFilter === "all" || d.mine || isFriend(d.uid)).sort((a, b) => rank(b) - rank(a));
+  $("#packFilter").hidden = !nf;
+  $("#packFilter").innerHTML = `<button class="chip ${S.packFilter === "all" ? "on" : ""}" data-pf="all">Everyone</button><button class="chip ${S.packFilter === "friends" ? "on" : ""}" data-pf="friends">Friends<span class="n">${nf}</span></button>`;
+  const fans = realDogs().filter(d => (d.doc.friends || []).includes(S.uid) && !isFriend(d.uid));
+  $("#friendReqs").hidden = !fans.length || S.readOnly;
+  $("#friendReqs").innerHTML = `<h3>Added you as a friend</h3><div class="rows">${fans.map(d => `<div class="row">${av(d)}<div class="grow"><b>${esc(d.doc.dog.name)}</b> <span class="small muted">with ${esc(ownerName(d))}</span></div><button class="btn sm" data-friend="${esc(d.uid)}">Add back</button></div>`).join("")}</div>`;
   $("#packLede").textContent = dogs.length ? `${dogs.length} ${dogs.length === 1 ? "dog" : "dogs"} on Park Pack, with where they're headed next.` : "No dogs yet.";
   $("#packList").innerHTML = dogs.length ? dogs.map(d => {
     const dg = d.doc.dog, nxt = (d.doc.pings || []).filter(p => p.date > t || (p.date === t && p.end > nowMin())).sort((a,b) => a.date.localeCompare(b.date) || a.start - b.start)[0];
-    return `<article class="dogcard"><div class="hd">${av(d, "lg")}<div style="min-width:0"><h3>${esc(dg.name)}</h3>
-        <div class="small muted">${esc(dg.breed || "Good dog")} · with ${esc(ownerName(d))}</div></div></div>
-      <div class="tags"><span class="tag">${SIZE[dg.size] || "Medium"}</span><span class="tag ${dg.social === "learning" ? "learn" : ""}">${SOCIAL[dg.social] || "Friendly"}</span>${d.example ? `<span class="tag ex">Example</span>` : ""}</div>
+    const fr = !d.mine && isFriend(d.uid);
+    return `<article class="dogcard"><div class="hd">${av(d, "lg")}<div style="min-width:0;flex:1"><h3>${esc(dg.name)}</h3>
+        <div class="small muted">${esc(dg.breed || "Good dog")} · with ${esc(ownerName(d))}</div></div>
+        ${d.mine || d.example || S.mode === "local" ? "" : `<button class="btn sm ${fr ? "ghost" : ""}" data-friend="${esc(d.uid)}" aria-pressed="${fr}">${fr ? "Friends ✓" : "Add friend"}</button>`}</div>
+      <div class="tags"><span class="tag">${SIZE[dg.size] || "Medium"}</span><span class="tag ${dg.social === "learning" ? "learn" : ""}">${SOCIAL[dg.social] || "Friendly"}</span>${d.example ? `<span class="tag ex">Example</span>` : ""}${d.mine ? `<span class="tag">You</span>` : ""}</div>
       ${dg.vibe ? `<p class="note">${esc(dg.vibe)}</p>` : ""}
       <div class="small"><span class="label">Next</span> ${nxt && PARK[nxt.park] ? `${esc(PARK[nxt.park].short)}, ${dayLabel(nxt.date)} ${range(nxt.start, nxt.end)}` : `<span class="muted">No pings planned</span>`}</div>
       ${(d.doc.favParks || []).length ? `<div class="small muted">Usually at ${esc(d.doc.favParks.filter(p => PARK[p]).map(p => PARK[p].short).join(", "))}</div>` : ""}
@@ -938,6 +1143,7 @@ function renderMe(){
       ${S.readOnly ? "" : `<button class="iconbtn" data-unping="${esc(p.id)}">Remove</button>`}</div>`).join("")
     : `<div class="empty">No pings yet. Tap <b>Ping a park</b> when you're heading out.</div>`;
   renderInstall();
+  renderFriendsCard();
 }
 
 /* ---------- install (PWA) ---------- */
@@ -963,7 +1169,7 @@ const inAppBrowser = () => /Instagram|FBAN|FBAV|Snapchat|Line\/|GSA\/|WhatsApp|M
 const isAndroid = () => /Android/i.test(UA);
 const isPhone = () => isIOS() || isAndroid();
 const SHARE_ICON = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Share"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M6 11H5v10h14V11h-1"/></svg>`;
-let welcomeOn = canInstallHere() && (new URLSearchParams(location.search).has("join") || (isPhone() && !ls.get("pp.welcomed", false)));
+let welcomeOn = canInstallHere() && ((new URLSearchParams(location.search).has("join") || new URLSearchParams(location.search).has("friend")) || (isPhone() && !ls.get("pp.welcomed", false)));
 function renderWelcome(){
   const w = $("#welcome");
   if (!welcomeOn || !canInstallHere()){ w.hidden = true; return; }
@@ -1001,7 +1207,7 @@ function openSheet(prefill = {}){
   if (S.readOnly){ toast("You're viewing only, so you can't post pings yet."); return; }
   const now = nowMin();
   const roundUp = Math.min(Math.max(Math.ceil(now/30)*30, START), START + (NS-2)*STEP);
-  Object.assign(sheetState, {park:prefill.park || S.park || S.my.favParks[0] || "rowes", date:prefill.date || (S.day >= today() ? S.day : today()),
+  Object.assign(sheetState, {park:prefill.park || S.park || (nearestPark()?.m <= 400 ? nearestPark().pk.id : null) || S.my.favParks[0] || "rowes", date:prefill.date || (S.day >= today() ? S.day : today()),
     start:prefill.start ?? roundUp, end:prefill.end ?? roundUp + 60, note:""});
   renderSheet();
   $("#scrim").hidden = false; $("#sheet").hidden = false;
@@ -1044,6 +1250,7 @@ function savePing(){
 /* ---------- tabs + render ---------- */
 function setTab(t){
   S.tab = t;
+  if (t !== "map") stopLocate(); else if (geo.want) startLocate(false);
   for (const v of ["map","plan","events","pack","me"]) $("#v-" + v).hidden = v !== t;
   document.querySelectorAll(".tab").forEach(b => { b.classList.toggle("on", b.dataset.tab === t); b.setAttribute("aria-current", b.dataset.tab === t ? "page" : "false"); });
   $("#fab").hidden = t === "me" || t === "events" || S.readOnly;
@@ -1074,6 +1281,27 @@ $("#parkPanel").addEventListener("click", e => {
   const pp = e.target.closest("[data-ping-park]"); if (pp) openSheet({park:pp.dataset.pingPark, date:S.day, ...(S.time != null ? {start:S.time, end:S.time + 60} : {})});
 });
 $("#fab").addEventListener("click", () => openSheet());
+$("#locBtn").addEventListener("click", () => {
+  if (geo.watch != null && geo.pos){ const n = nearestPark(); toast(n && n.m <= 150 ? `You're at ${n.pk.short}.` : "Showing where you are. Only you can see it."); return; }
+  startLocate(true);
+});
+$("#hereBar").addEventListener("click", e => {
+  const c = e.target.closest("[data-checkin]"); if (c){ checkIn(c.dataset.checkin); return; }
+  const pp = e.target.closest("[data-ping-park]"); if (pp) openSheet({park:pp.dataset.pingPark});
+});
+$("#whoChips").addEventListener("click", e => { const b = e.target.closest("[data-who]"); if (b){ S.who = b.dataset.who; ls.set("pp.who", S.who); renderMap(); } });
+$("#friendsOut").addEventListener("click", e => { const b = e.target.closest("[data-park]"); if (b){ S.day = today(); S.park = b.dataset.park; S.time = null; renderMap(); } });
+$("#v-pack").addEventListener("click", e => {
+  const f = e.target.closest("[data-friend]"); if (f){ toggleFriend(f.dataset.friend); return; }
+  const pf = e.target.closest("[data-pf]"); if (pf){ S.packFilter = pf.dataset.pf; renderPack(); }
+});
+$("#friendsCard").addEventListener("click", e => {
+  if (e.target.closest("#shareFriend")) shareFriendLink();
+  if (e.target.closest("#alertBtn")) toggleAlerts();
+});
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) stopLocate(); else if (S.tab === "map" && geo.want) startLocate(false);
+});
 $("#v-events").addEventListener("click", e => {
   const b = e.target.closest("[data-share-ev]"); if (!b) return;
   const ev = DOG_EVENTS.find(x => x.id === b.dataset.shareEv); if (!ev) return;
@@ -1184,6 +1412,9 @@ buildForm(); buildGrid(); fillForm();
 $("#hoods").innerHTML = HOODS.map(([t, x, y]) => `<text class="hood" x="${x}" y="${y}">${t}</text>`).join("") +
   WATER_LABELS.map(([t, x, y]) => `<text class="waterlbl" x="${x}" y="${y}">${t}</text>`).join("");
 { const n = nowMin(); $("#timeSlider").value = Math.max(0, Math.min(NS-1, Math.floor((n - START)/STEP))); }
+{ const g = document.createElementNS("http://www.w3.org/2000/svg", "g"); g.id = "meLoc"; g.setAttribute("pointer-events", "none"); $("#map").appendChild(g); }
+if (ls.get("pp.loc", false) && navigator.permissions?.query)
+  navigator.permissions.query({name:"geolocation"}).then(st => { if (st.state === "granted"){ geo.want = true; if (S.tab === "map") startLocate(false); } }).catch(() => {});
 renderAll();
 connect();
 })();
