@@ -1,5 +1,5 @@
 // Park Pack offline shell. Bump VERSION whenever app files change.
-const VERSION = "parkpack-v8";
+const VERSION = "parkpack-v9";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "firebase-config.js",
   "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png", "icons/apple-touch-icon.png"];
 
@@ -14,7 +14,8 @@ self.addEventListener("fetch", e => {
   const req = e.request;
   if (req.method !== "GET" || new URL(req.url).origin !== location.origin) return;
   // Network first so updates show up right away; cached copy when offline.
-  e.respondWith(fetch(req).then(res => {
+  // no-cache revalidates with the server (a cheap 304) instead of trusting the CDN's 10-minute browser cache.
+  e.respondWith(fetch(req.url, {cache:"no-cache", credentials:"same-origin"}).then(res => {
     const copy = res.clone();
     caches.open(VERSION).then(c => c.put(req, copy));
     return res;
