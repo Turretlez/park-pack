@@ -226,6 +226,13 @@ textarea.input{resize:vertical;min-height:84px;font:inherit}
 .go{width:100%;padding:15px 16px;font-size:16px;border-radius:14px}
 .go small{display:block;font-weight:600;font-size:12.5px;opacity:.75;margin-top:2px}
 .mesum{display:flex;gap:12px;align-items:center}
+.askwrap{position:fixed;inset:0;z-index:62;background:rgba(10,18,13,.5);display:grid;place-items:center;padding:24px}
+.askcard{background:var(--surface);border-radius:22px;padding:22px 20px 18px;max-width:340px;width:100%;display:flex;flex-direction:column;gap:12px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.3);animation:pop .25s cubic-bezier(.2,1.4,.5,1)}
+.askcard .big{font-size:44px;line-height:1}
+.askcard h2{font-size:21px}
+.askcard p{color:var(--muted);font-size:14.5px}
+.askcard .btn{width:100%;padding:14px;font-size:16px}
+@keyframes pop{from{transform:scale(.85);opacity:0}to{transform:none;opacity:1}}
 .locask{width:100%;border:1.5px dashed var(--park);cursor:pointer;color:var(--ink);font:inherit}
 .themes{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
 .themecard{border:2px solid var(--line);background:var(--tb);border-radius:14px;padding:8px;display:flex;flex-direction:column;gap:6px;text-align:left;color:var(--ti)}
@@ -378,7 +385,7 @@ a.linkbtn{text-decoration:none}
 <g id="pins"></g>
 </svg>
 <!-- MAP END -->
-      <div class="maplegend" aria-hidden="true"><span><i style="background:var(--plan)"></i>Planning to go</span><span><i style="background:var(--here)"></i>There now</span><span><i style="border:1.5px dashed var(--park)"></i>Usually free</span></div>
+      <div class="maplegend" aria-hidden="true"><span><i style="background:var(--plan)"></i>Planning to go</span><span><i style="background:var(--here)"></i>There now (checked in)</span><span><i style="border:1.5px dashed var(--park)"></i>Usually free</span></div>
       <span class="mapcredit">© OpenStreetMap</span>
       <button class="locbtn" id="locBtn" aria-label="Show where I am"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
     </div>
@@ -493,6 +500,7 @@ a.linkbtn{text-decoration:none}
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" hidden><div class="in" id="sheetIn"></div></div>
 <div class="toast" id="toast" role="status" hidden></div>
 <div class="pv" id="pv" role="dialog" aria-modal="true" aria-label="Photos" hidden></div>
+<div class="askwrap" id="ask" role="dialog" aria-modal="true" aria-labelledby="askTitle" hidden><div class="askcard" id="askIn"></div></div>
 <div class="welcome" id="welcome" role="dialog" aria-modal="true" aria-labelledby="welcomeTitle" hidden><div class="in" id="welcomeIn"></div></div>
 
 <script>
@@ -773,7 +781,36 @@ function oneAtATime(pings){
   return kept.reverse();
 }
 const isPast = p => p.date < today() || (p.date === today() && p.end <= nowMin());
-const statusTag = p => isLive(p) ? `<div class="livetag">There now</div>` : isPast(p) ? `<div class="livetag past">Was there</div>` : `<div class="livetag plan">Planning to go</div>`;
+const isHere = p => isLive(p) && !!p.here;
+const statusTag = p => isHere(p) ? `<div class="livetag">There now</div>` : isPast(p) ? `<div class="livetag past">Was there</div>` : isLive(p) ? `<div class="livetag plan">Should be there</div>` : `<div class="livetag plan">Planning to go</div>`;
+/* clearing: end a live ping now, or drop a future one */
+function leavePing(id){
+  const p = S.my.pings.find(x => x.id === id); if (!p) return;
+  const now = nowMin();
+  if (isLive(p) && now - p.start >= 5){ p.end = now; delete p.here; toast(`Checked out of ${PARK[p.park]?.short || "the park"}.`); }
+  else { S.my.pings = S.my.pings.filter(x => x.id !== id); toast(`Removed your ${PARK[p.park]?.short || ""} ping.`); }
+  queueSave(0); renderAll(); if (!$("#sheet").hidden) renderSheet();
+}
+function myPingButtons(p){
+  if (S.readOnly || isPast(p)) return "";
+  return isLive(p) ? `<button class="btn sm ghost" data-leave="${esc(p.id)}">I'm leaving</button>` : `<button class="iconbtn" data-leave="${esc(p.id)}">Remove</button>`;
+}
+/* live location keeps check-ins honest: arrive → there now; walk away → checked out */
+function presenceCheck(){
+  if (!geo.pos || !S.my.dog?.name) return;
+  let changed = false;
+  for (const p of S.my.pings){
+    if (!isLive(p) || !PARK_LL[p.park]) continue;
+    const m = distM(geo.pos, PARK_LL[p.park]);
+    if (p.here && m > 300 && (geo.acc || 0) < 200){
+      const now = nowMin();
+      if (now - p.start >= 5){ p.end = now; delete p.here; } else S.my.pings = S.my.pings.filter(x => x !== p);
+      toast(`Looks like you left ${PARK[p.park].short}, so you're checked out.`); changed = true; break;
+    }
+    if (!p.here && m <= 150){ p.here = true; toast(`You made it to ${PARK[p.park].short}! Showing you as there now.`); changed = true; confetti(12); }
+  }
+  if (changed){ queueSave(0); renderAll(); }
+}
 /* one place at a time: a new ping replaces any of mine that overlaps it */
 function addMyPing(np){
   const gone = S.my.pings.filter(p => p.date === np.date && p.start < np.end && np.start < p.end);
@@ -829,8 +866,10 @@ function markSeenFor(uid){ for (const p of S.docs[uid]?.pings || []) seen.add(pi
 function checkFriendPings(){
   const fresh = [];
   for (const d of friendDogs()) for (const p of d.doc.pings || []){
-    const k = pingKey(d.uid, p);
-    if (seen.has(k) || !PARK[p.park] || !upcoming(p)) continue;
+    if (!PARK[p.park] || !upcoming(p)) continue;
+    const k = pingKey(d.uid, p), kh = k + ":here";
+    if (p.here && isLive(p) && !seen.has(kh)){ seen.add(kh); seen.add(k); fresh.push({p, d}); continue; }
+    if (seen.has(k)) continue;
     seen.add(k); fresh.push({p, d});
   }
   if (!ls.get("pp.seenInit", false)){ ls.set("pp.seenInit", true); saveSeen(); return; }   // first run: no flood
@@ -839,11 +878,11 @@ function checkFriendPings(){
   fresh.slice(0, 3).forEach(notifyPing);
 }
 function notifyPing({p, d}){
-  const title = `${d.doc.dog.name} is heading to ${PARK[p.park].short}`;
-  const body = `${dayLabel(p.date)} ${range(p.start, p.end)}${p.note ? " · " + p.note : ""}`;
+  const title = `${d.doc.dog.name} ${p.here ? "is at" : "is heading to"} ${PARK[p.park].short}`;
+  const body = p.here && isLive(p) ? `There now until ${fmt(p.end)}${p.note ? " · " + p.note : ""}` : `${dayLabel(p.date)} ${range(p.start, p.end)}${p.note ? " · " + p.note : ""}`;
   if (!document.hidden){ toast(`${title}, ${body.charAt(0).toLowerCase() + body.slice(1)}`); return; }
   if (!alertsOn()) return;
-  const opts = {body, tag:pingKey(d.uid, p), icon:"icons/icon-192.png", badge:"icons/icon-192.png"};
+  const opts = {body, tag:pingKey(d.uid, p) + (p.here ? ":here" : ""), icon:"icons/icon-192.png", badge:"icons/icon-192.png"};
   (navigator.serviceWorker ? navigator.serviceWorker.getRegistration() : Promise.resolve(null))
     .then(r => r ? r.showNotification(title, opts) : new Notification(title, opts)).catch(() => {});
 }
@@ -906,7 +945,8 @@ function startLocate(fromTap){
   if (geo.watch != null) return;
   geo.watch = navigator.geolocation.watchPosition(p => {
     geo.pos = [p.coords.latitude, p.coords.longitude]; geo.acc = p.coords.accuracy; geo.err = null;
-    ls.set("pp.loc", true); renderLoc(); geoToSheet();
+    const first = !ls.get("pp.loc", false);
+    ls.set("pp.loc", true); renderLoc(); geoToSheet(); presenceCheck(); if (first && S.tab === "me") renderLook();
   }, e => {
     geo.err = e.code; stopLocate(); geo.want = false;
     if (fromTap) toast(e.code === 1 ? "Location is blocked. Allow it for Park Pack in your phone's settings." : "Couldn't find you. Try again outside.");
@@ -938,7 +978,10 @@ function renderLoc(){
     bar.innerHTML = `<div class="grow">You're about ${(distM(geo.pos, PARK_LL.rowes) / 1609).toFixed(1)} miles from Greenway Meetup, off this map.</div>`;
   } else if (at){
     bar.innerHTML = `<div class="grow">You're at <b>${esc(near.pk.name)}</b>.${mine ? ` Checked in until ${fmt(mine.end)}.` : ""}</div>
-      ${mine || S.readOnly ? "" : `<button class="btn sm ball" data-checkin="${near.pk.id}">Check in</button>`}`;
+      ${S.readOnly ? "" : mine ? `<button class="btn sm ghost" data-leave="${esc(mine.id)}">I'm leaving</button>` : `<button class="btn sm ball" data-checkin="${near.pk.id}">Check in</button>`}`;
+  } else if (S.my.pings.some(isLive)){
+    const lp = S.my.pings.find(isLive);
+    bar.innerHTML = `<div class="grow">You pinged <b>${esc(PARK[lp.park]?.short || "")}</b> until ${fmt(lp.end)}, but you're not there yet.</div><button class="btn sm ghost" data-leave="${esc(lp.id)}">Clear</button>`;
   } else {
     bar.innerHTML = `<div class="grow">Nearest: <b>${esc(near.pk.short)}</b>, about ${Math.max(1, Math.round(near.m / 80))} min walk.</div>
       <button class="btn sm ghost" data-ping-park="${near.pk.id}">Ping it</button>`;
@@ -948,7 +991,9 @@ function checkIn(park){
   if (!S.my.dog?.name){ openSheet({park}); return; }
   const start = Math.max(START, Math.floor(nowMin() / 30) * 30), end = Math.min(start + 60, START + NS * STEP);
   if (end <= start || nowMin() >= START + NS * STEP){ toast("Check-ins close at 10 PM."); return; }
-  const gone = addMyPing({id:uidGen(), date:today(), park, start, end});
+  const near = nearestPark();
+  const here = !!(near && near.pk.id === park && near.m <= 150);
+  const gone = addMyPing({id:uidGen(), date:today(), park, start, end, ...(here ? {here:true} : {})});
   queueSave(0);
   S.day = today(); S.park = park; S.time = null;
   confetti();
@@ -993,7 +1038,7 @@ function renderMap(){
   for (const pk of order){
     const here = vis.filter(p => p.park === pk.id);
     const n = new Set(here.map(p => p.dog.uid)).size;
-    const live = vis.some(p => p.park === pk.id && isLive(p));
+    const live = vis.some(p => p.park === pk.id && isHere(p));
     const done = n && !live && vis.filter(p => p.park === pk.id).every(isPast);
     const regs = S.time == null ? [] : regularsAt(pk.id, S.day, S.time, new Set(here.map(p => p.dog.uid)));
     const r = n ? 11 + Math.min(n, 6)*1.6 : 6;
@@ -1251,7 +1296,7 @@ function renderMe(){
   const t = today(), mine = S.my.pings.filter(p => p.date >= t).sort((a,b) => a.date.localeCompare(b.date) || a.start - b.start);
   $("#myPings").innerHTML = mine.length ? mine.map(p => `<div class="row"><div class="grow"><b>${esc(PARK[p.park]?.name || p.park)}</b>
       <div class="small muted num">${dayLabel(p.date)} · ${range(p.start, p.end)}</div>${statusTag(p)}${p.note ? `<div class="note">${esc(p.note)}</div>` : ""}</div>
-      ${S.readOnly ? "" : `<button class="iconbtn" data-unping="${esc(p.id)}">Remove</button>`}</div>`).join("")
+      ${myPingButtons(p)}</div>`).join("")
     : `<div class="empty">No pings yet. Tap <b>Ping a park</b> when you're heading out.</div>`;
   renderInstall();
   renderFriendsCard();
@@ -1329,7 +1374,6 @@ function openSheet(prefill = {}){
     if (when !== "now") start = prefill.start;
   } else if (date !== t) { when = "day"; }
   if (when === "now" && !canNow()) when = laterSlots().length ? "later" : "day";
-  if (navigator.geolocation && geo.watch == null && !geo.err && ls.get("pp.loc", false)) startLocate(false);
   Object.assign(sheetState, {mode:"ping", parkAuto:!prefill.park, located:!!geo.pos, park:prefill.park || (near && near.m <= 1500 ? near.pk.id : null) || S.park || S.my.favParks[0] || "rowes",
     date: when === "day" && date === t ? dateKey(addDays(new Date(), 1)) : date, when, start, dur, note:"", allParks:false, showNote:false});
   showSheet();
@@ -1422,7 +1466,7 @@ function renderParkSheet(){
     <div class="label">${esc(dayLabel(S.day))}</div>
     <div class="rows">${here.length ? here.map(p => `<div class="row">${av(p.dog)}
         <div class="grow"><b>${esc(p.dog.doc.dog.name)}</b> <span class="muted small">with ${esc(ownerName(p.dog))}</span>${p.note ? `<div class="note">${esc(p.note)}</div>` : ""}</div>
-        <div style="text-align:right"><div class="t">${range(p.start, p.end)}</div>${statusTag(p)}</div></div>`).join("")
+        <div style="text-align:right"><div class="t">${range(p.start, p.end)}</div>${statusTag(p)}${p.dog.mine ? myPingButtons(p) : ""}</div></div>`).join("")
       : `<div class="empty">No one's pinged here ${dayLabel(S.day).toLowerCase()} yet.</div>`}</div>
     ${S.readOnly ? "" : `<button class="btn ball go" data-ping-here>Ping ${esc(pk.short)}</button>`}
     ${pk.ll || PARK_LL[pk.id] ? `<a class="linkbtn" style="text-align:center" target="_blank" rel="noopener" href="https://maps.apple.com/?daddr=${PARK_LL[pk.id] ? PARK_LL[pk.id].join(",") : ""}&dirflg=w">Walking directions ↗</a>` : ""}`;
@@ -1433,7 +1477,9 @@ function savePing(){
   if (st.showNote && $("#s-note")) st.note = $("#s-note").value.trim();
   const {date, start, end} = pingTimes();
   if (end <= start){ toast("Pings run until 10 PM. Pick an earlier time."); return; }
-  const gone = addMyPing({id:uidGen(), date, park:st.park, start, end, ...(st.note ? {note:st.note} : {})});
+  const near = nearestPark();
+  const here = st.when === "now" && !!(near && near.pk.id === st.park && near.m <= 150);
+  const gone = addMyPing({id:uidGen(), date, park:st.park, start, end, ...(here ? {here:true} : {}), ...(st.note ? {note:st.note} : {})});
   queueSave(0);
   closeSheet();
   confetti();
@@ -1520,6 +1566,40 @@ function closePhotos(){ $("#pv").hidden = true; $("#pv").innerHTML = ""; documen
 $("#pv").addEventListener("click", e => { if (e.target.closest("[data-pvclose]") || e.target.classList.contains("strip") || e.target.parentElement?.classList.contains("strip")) closePhotos(); });
 addEventListener("keydown", e => { if (e.key === "Escape" && !$("#pv").hidden) closePhotos(); });
 
+/* ---------- one-time pop-ups: location, then friend alerts ---------- */
+let askOpen = null;
+function showAsk(kind){
+  askOpen = kind;
+  const name = S.my.dog?.name || "your pup";
+  const iosNoPush = !("Notification" in window);
+  $("#askIn").innerHTML = kind === "loc"
+    ? `<div class="big">📍</div><h2 id="askTitle">Turn on location?</h2>
+       <p>Park Pack will spot which park you're at, so you can check ${esc(name)} in with one tap and show as <b>there now</b>. It checks you out when you leave.</p>
+       <p class="small">Your exact location never leaves your phone. Only the park you check in to is shared.</p>
+       <button class="btn" data-ask-yes>Turn on location</button><button class="linkbtn" data-ask-no>Not now</button>`
+    : `<div class="big">🔔</div><h2 id="askTitle">Get friend alerts?</h2>
+       <p>We'll buzz your phone when a friend pings a park or shows up at one, so you can head over too.</p>
+       ${iosNoPush ? `<p class="small">On iPhone, add Park Pack to your home screen first. You can turn alerts on later under My dog.</p><button class="btn" data-ask-no>Got it</button>`
+         : `<button class="btn" data-ask-yes>Turn on alerts</button><button class="linkbtn" data-ask-no>Not now</button>`}`;
+  $("#ask").hidden = false;
+}
+function closeAsk(){ $("#ask").hidden = true; const k = askOpen; askOpen = null; if (k === "loc") setTimeout(maybeAsk, 900); }
+function maybeAsk(){
+  if (askOpen || !$("#welcome").hidden || !$("#sheet").hidden || !$("#pv").hidden || S.mode === "claude" || S.readOnly) return;
+  if (navigator.geolocation && !ls.get("pp.loc", false) && !ls.get("pp.askedLoc", false)){ ls.set("pp.askedLoc", true); showAsk("loc"); return; }
+  const canAsk = "Notification" in window ? Notification.permission === "default" && !S.alerts : isIOS() && !isStandalone();
+  if (S.mode === "firebase" && canAsk && !ls.get("pp.askedAlerts", false)){ ls.set("pp.askedAlerts", true); showAsk("alerts"); }
+}
+$("#ask").addEventListener("click", async e => {
+  if (e.target.closest("[data-ask-yes]")){
+    const k = askOpen; $("#ask").hidden = true; askOpen = null;
+    if (k === "loc"){ startLocate(true); setTimeout(maybeAsk, 2500); }
+    else { await toggleAlerts(); }
+    return;
+  }
+  if (e.target.closest("[data-ask-no]") || e.target === $("#ask")) closeAsk();
+});
+
 /* ---------- LOOK (this phone only): themes, appearance, start tab, celebrations ---------- */
 const VARS = ["--bg","--surface","--ink","--muted","--line","--park","--on-park","--park-soft","--water","--land","--street","--street-major","--street-case","--bldg","--grass","--ball","--on-ball"];
 const T = (n, dark, paws, v) => ({n, dark, paws, v:Object.fromEntries(VARS.map((k, i) => [k, v[i]]))});
@@ -1557,9 +1637,15 @@ function renderLook(){
     <div class="field"><span class="label">Theme</span><div class="themes">${Object.entries(THEMES).map(([k, th]) => card(k, th)).join("")}</div></div>
     ${THEMES[look.palette].v ? "" : `<div class="field"><span class="label">Light or dark</span><div class="chips">${chip("theme","auto","Match phone")}${chip("theme","light","Light")}${chip("theme","dark","Dark")}</div></div>`}
     <div class="field"><span class="label">Open to</span><div class="chips">${chip("start","map","Map")}${chip("start","events","Events")}${chip("start","pack","Pack")}${chip("start","me","My dog")}</div></div>
+    <div class="row" style="padding:0"><div class="grow"><b>Location</b><div class="small muted">${ls.get("pp.loc", false) ? "On. Finds your park automatically. Never shared." : "Off. Turn on to find the park you're at."}</div></div><button class="btn sm ${ls.get("pp.loc", false) ? "" : "ghost"}" data-locset>${ls.get("pp.loc", false) ? "On" : "Off"}</button></div>
     <div class="row" style="padding:0"><div class="grow"><b>Paw confetti</b><div class="small muted">A little party when you ping a park</div></div><button class="btn sm ${look.party ? "" : "ghost"}" data-look="party" data-v="${look.party ? "" : "1"}">${look.party ? "On" : "Off"}</button></div>`;
 }
 $("#lookCard").addEventListener("click", e => {
+  if (e.target.closest("[data-locset]")){
+    if (ls.get("pp.loc", false)){ ls.set("pp.loc", false); geo.want = false; stopLocate(); geo.pos = null; renderLoc(); toast("Location off."); }
+    else startLocate(true);
+    setTimeout(renderLook, 50); return;
+  }
   const b = e.target.closest("[data-look]"); if (!b) return;
   const k = b.dataset.look; look[k] = k === "party" ? !!b.dataset.v : b.dataset.v;
   ls.set("pp.look", look); applyLook(); renderLook();
@@ -1583,7 +1669,7 @@ applyLook();
 /* ---------- tabs + render ---------- */
 function setTab(t){
   S.tab = t;
-  if (t !== "map") stopLocate(); else if (geo.want) startLocate(false);
+  if (geo.want && geo.watch == null && !document.hidden) startLocate(false);
   for (const v of ["map","plan","events","pack","me"]) $("#v-" + v).hidden = v !== t;
   document.querySelectorAll(".tab").forEach(b => { b.classList.toggle("on", b.dataset.tab === t); b.setAttribute("aria-current", b.dataset.tab === t ? "page" : "false"); });
   $("#fab").hidden = t === "me" || t === "events" || S.readOnly;
@@ -1619,6 +1705,7 @@ $("#locBtn").addEventListener("click", () => {
 $("#hereBar").addEventListener("click", e => {
   if (e.target.closest("[data-locate]")){ startLocate(true); return; }
   const c = e.target.closest("[data-checkin]"); if (c){ checkIn(c.dataset.checkin); return; }
+  const lv = e.target.closest("[data-leave]"); if (lv){ leavePing(lv.dataset.leave); return; }
   const pp = e.target.closest("[data-ping-park]"); if (pp) openSheet({park:pp.dataset.pingPark});
 });
 $("#whoChips").addEventListener("click", e => { const b = e.target.closest("[data-who]"); if (b){ S.who = b.dataset.who; ls.set("pp.who", S.who); renderMap(); } });
@@ -1633,7 +1720,7 @@ $("#friendsCard").addEventListener("click", e => {
   if (e.target.closest("#alertBtn")) toggleAlerts();
 });
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) stopLocate(); else if (S.tab === "map" && geo.want) startLocate(false);
+  if (document.hidden) stopLocate(); else if (geo.want) startLocate(false);
 });
 $("#v-events").addEventListener("click", e => {
   const b = e.target.closest("[data-share-ev]"); if (!b) return;
@@ -1644,7 +1731,7 @@ $("#installBtn").addEventListener("click", doInstall);
 $("#installCard").addEventListener("click", e => { if (e.target.closest("#installNow")) doInstall(); });
 $("#welcome").addEventListener("click", e => {
   if (e.target.closest("#welcomeInstall")) doInstall();
-  if (e.target.closest("#welcomeSkip")){ welcomeOn = false; ls.set("pp.welcomed", true); renderWelcome(); }
+  if (e.target.closest("#welcomeSkip")){ welcomeOn = false; ls.set("pp.welcomed", true); renderWelcome(); setTimeout(maybeAsk, 800); }
 });
 
 $("#segMine").addEventListener("click", () => { S.planMode = "mine"; S.pick = null; renderPlan(); });
@@ -1706,6 +1793,7 @@ $("#dogForm").addEventListener("submit", e => {
   queueSave(0);
   S.editing = false;
   toast(`Saved ${name}.`);
+  setTimeout(maybeAsk, 1200);
   renderAll();
 });
 $("#dogForm").addEventListener("click", e => {
@@ -1713,9 +1801,7 @@ $("#dogForm").addEventListener("click", e => {
   if (e.target.closest("#cancelEdit")){ S.editing = false; fillForm(); renderMe(); }
 });
 $("#myPings").addEventListener("click", e => {
-  const b = e.target.closest("[data-unping]"); if (!b) return;
-  S.my.pings = S.my.pings.filter(p => p.id !== b.dataset.unping);
-  queueSave(0); renderAll();
+  const b = e.target.closest("[data-leave]"); if (b) leavePing(b.dataset.leave);
 });
 
 $("#scrim").addEventListener("click", closeSheet);
@@ -1727,6 +1813,7 @@ $("#sheetIn").addEventListener("click", e => {
   if (t.closest("[data-go-me]")){ closeSheet(); setTab("me"); startEdit(); return; }
   if (t.closest("[data-ping-here]")){ const park = st.park; st.mode = "ping"; openSheet({park, date:S.day}); return; }
   if (t.closest("[data-save-ping]")){ savePing(); return; }
+  const lv = t.closest("[data-leave]"); if (lv){ leavePing(lv.dataset.leave); return; }
   keepNote();
   if (t.closest("[data-locate]")){ st.parkAuto = true; startLocate(true); renderSheet(); return; }
   const sp = t.closest("[data-sp]"); if (sp){ st.park = sp.dataset.sp; st.parkAuto = false; st.allParks = false; renderSheet(); return; }
@@ -1747,10 +1834,14 @@ $("#hoods").innerHTML = HOODS.map(([t, x, y]) => `<text class="hood" x="${x}" y=
   WATER_LABELS.map(([t, x, y]) => `<text class="waterlbl" x="${x}" y="${y}">${t}</text>`).join("");
 { const n = nowMin(); $("#timeSlider").value = Math.max(0, Math.min(NS-1, Math.floor((n - START)/STEP))); }
 { const g = document.createElementNS("http://www.w3.org/2000/svg", "g"); g.id = "meLoc"; g.setAttribute("pointer-events", "none"); $("#map").appendChild(g); }
-if (ls.get("pp.loc", false) && navigator.permissions?.query)
-  navigator.permissions.query({name:"geolocation"}).then(st => { if (st.state === "granted"){ geo.want = true; if (S.tab === "map") startLocate(false); } }).catch(() => {});
+if (ls.get("pp.loc", false) && navigator.geolocation){
+  geo.want = true;
+  const go = () => startLocate(false);
+  if (navigator.permissions?.query) navigator.permissions.query({name:"geolocation"}).then(st => { if (st.state !== "denied") go(); else { geo.want = false; geo.err = 1; renderLoc(); } }).catch(go);
+  else go();
+}
 if (look.start && look.start !== "map" && !new URLSearchParams(location.search).has("friend")) setTab(look.start); else renderAll();
-connect();
+connect().then(() => setTimeout(maybeAsk, 1500));
 })();
 </script>
 <!-- APP END -->
