@@ -1,0 +1,9 @@
+{
+  "name": "park-pack-push",
+  "private": true,
+  "type": "module",
+  "description": "Sends Park Pack friend alerts to lock screens. Run by .github/workflows/push.yml.",
+  "dependencies": {
+    "firebase-admin": "12.7.0"
+  }
+}

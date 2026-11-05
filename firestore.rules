@@ -12,6 +12,14 @@ service cloud.firestore {
         && (!('photo' in request.resource.data) || (request.resource.data.photo is string && request.resource.data.photo.size() < 40000));
       allow delete: if request.auth != null && request.auth.uid == uid;
     }
+    // Each phone's lock-screen alert registration. Only that phone can see or change it;
+    // the GitHub alert job reads it with the admin key. meta/* is admin-only (no client rule).
+    match /push/{uid} {
+      allow read, delete: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['token', 'updatedAt'])
+        && request.resource.data.token is string && request.resource.data.token.size() < 4096;
+    }
     // Pup photo galleries, loaded only when someone opens them. Up to 6 per dog.
     match /photos/{uid} {
       allow read: if request.auth != null;

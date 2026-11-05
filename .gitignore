@@ -2,3 +2,4 @@
 dist/
 __pycache__/
 tools/osm/
+node_modules/

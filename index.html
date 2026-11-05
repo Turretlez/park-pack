@@ -702,7 +702,7 @@ async function connect(){
     try {
       const v = "10.12.2", base = `https://www.gstatic.com/firebasejs/${v}/`;
       await loadScript(base + "firebase-app-compat.js");
-      await Promise.all([loadScript(base + "firebase-auth-compat.js"), loadScript(base + "firebase-firestore-compat.js")]);
+      await Promise.all([loadScript(base + "firebase-auth-compat.js"), loadScript(base + "firebase-firestore-compat.js"), loadScript(base + "firebase-messaging-compat.js").catch(() => {})]);
       firebase.initializeApp(cfg);
       const cred = await firebase.auth().signInAnonymously();
       S.mode = "firebase"; S.uid = cred.user.uid;
@@ -712,6 +712,7 @@ async function connect(){
       coll.onSnapshot(snap => onDocs(snap.docs.map(d => ({id:d.id, data:d.data()}))),
                       () => setStatus("Can't reach the pack right now", false));
       loadMyPics();
+      if (alertsOn()) registerPush(false);
       return;
     } catch (e) { console.warn("Firebase unavailable, using this device only", e); }
   }
@@ -881,22 +882,44 @@ function notifyPing({p, d}){
   const title = `${d.doc.dog.name} ${p.here ? "is at" : "is heading to"} ${PARK[p.park].short}`;
   const body = p.here && isLive(p) ? `There now until ${fmt(p.end)}${p.note ? " · " + p.note : ""}` : `${dayLabel(p.date)} ${range(p.start, p.end)}${p.note ? " · " + p.note : ""}`;
   if (!document.hidden){ toast(`${title}, ${body.charAt(0).toLowerCase() + body.slice(1)}`); return; }
-  if (!alertsOn()) return;
+  if (!alertsOn() || S.pushOn) return;
   const opts = {body, tag:pingKey(d.uid, p) + (p.here ? ":here" : ""), icon:"icons/icon-192.png", badge:"icons/icon-192.png"};
   (navigator.serviceWorker ? navigator.serviceWorker.getRegistration() : Promise.resolve(null))
     .then(r => r ? r.showNotification(title, opts) : new Notification(title, opts)).catch(() => {});
 }
 async function toggleAlerts(){
-  if (S.alerts){ S.alerts = false; ls.set("pp.alerts", false); renderAll(); return; }
+  if (S.alerts){ S.alerts = false; ls.set("pp.alerts", false); unregisterPush(); renderAll(); return; }
   if (!("Notification" in window)){
     toast(isIOS() && !isStandalone() ? "Add Park Pack to your home screen first, then turn on alerts." : "This browser can't show alerts.");
     return;
   }
   const r = await Notification.requestPermission();
   S.alerts = r === "granted"; ls.set("pp.alerts", S.alerts);
+  if (S.alerts) registerPush(true);
   if (!S.alerts) toast("Alerts are blocked. Allow notifications for Park Pack in your phone's settings.");
   else toast("Friend alerts on.");
   renderAll();
+}
+/* lock-screen push: this phone's FCM token lives in push/{uid}; a GitHub job sends friend alerts */
+const VAPID = "BAK9kDyGJ1agQoedQoLCukKtF9553oHS4rvKXO16x9zN0eSpd8KFxYU_pk9uZBeFkNwiSwtL0wCcFD0XBgARKpY";
+async function registerPush(loud){
+  try {
+    if (S.mode !== "firebase" || !window.firebase?.messaging || !("serviceWorker" in navigator)) return;
+    if (!firebase.messaging.isSupported || !(await firebase.messaging.isSupported())) return;
+    const reg = await navigator.serviceWorker.ready;
+    const token = await firebase.messaging().getToken({vapidKey:VAPID, serviceWorkerRegistration:reg});
+    if (!token) return;
+    if (ls.get("pp.pushToken", "") !== token || loud){
+      await firebase.firestore().collection("push").doc(S.uid).set({token, updatedAt:new Date().toISOString()});
+      ls.set("pp.pushToken", token);
+    }
+    S.pushOn = true;
+  } catch (e){ console.warn("push", e); if (loud) toast("Lock-screen alerts couldn't start on this phone. In-app alerts still work."); }
+}
+async function unregisterPush(){
+  S.pushOn = false; ls.set("pp.pushToken", "");
+  try { if (S.mode === "firebase") await firebase.firestore().collection("push").doc(S.uid).delete(); } catch {}
+  try { if (window.firebase?.messaging) await firebase.messaging().deleteToken(); } catch {}
 }
 function alertsOn(){ return S.alerts && "Notification" in window && Notification.permission === "granted"; }
 function renderFriendsCard(){
@@ -914,7 +937,7 @@ function renderFriendsCard(){
     ${S.mode === "firebase" ? `<button class="btn ghost" id="shareFriend">Share my friend link</button>` : ""}
     <div class="row" style="border-top:1px solid var(--line);padding-top:12px"><div class="grow"><b>Friend alerts</b><div class="small muted">${alertNote}</div></div>
       ${canNotify || S.alerts ? `<button class="btn sm ${S.alerts ? "ghost" : ""}" id="alertBtn">${S.alerts ? "Turn off" : "Turn on"}</button>` : ""}</div>
-    ${S.alerts ? `<p class="small muted">Phones pause web apps in the background, so alerts come in while Park Pack is open or was opened recently.</p>` : ""}`;
+    ${S.alerts ? `<p class="small muted">${S.pushOn ? "Lock-screen alerts are on for this phone. They can take up to about 15 minutes to arrive." : "Alerts come in while Park Pack is open. Lock-screen alerts need Park Pack on your home screen."}</p>` : ""}`;
 }
 function renderFriendsOut(){
   const el = $("#friendsOut"), list = [];
@@ -1578,7 +1601,7 @@ function showAsk(kind){
        <p class="small">Your exact location never leaves your phone. Only the park you check in to is shared.</p>
        <button class="btn" data-ask-yes>Turn on location</button><button class="linkbtn" data-ask-no>Not now</button>`
     : `<div class="big">🔔</div><h2 id="askTitle">Get friend alerts?</h2>
-       <p>We'll buzz your phone when a friend pings a park or shows up at one, so you can head over too.</p>
+       <p>We'll buzz your phone, even on the lock screen, when a friend pings a park or shows up at one. Alerts can take a few minutes to arrive.</p>
        ${iosNoPush ? `<p class="small">On iPhone, add Park Pack to your home screen first. You can turn alerts on later under My dog.</p><button class="btn" data-ask-no>Got it</button>`
          : `<button class="btn" data-ask-yes>Turn on alerts</button><button class="linkbtn" data-ask-no>Not now</button>`}`;
   $("#ask").hidden = false;

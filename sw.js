@@ -1,5 +1,5 @@
 // Park Pack offline shell. Bump VERSION whenever app files change.
-const VERSION = "parkpack-v14";
+const VERSION = "parkpack-v15";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "firebase-config.js",
   "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png", "icons/apple-touch-icon.png"];
 
@@ -20,6 +20,17 @@ self.addEventListener("fetch", e => {
     caches.open(VERSION).then(c => c.put(req, copy));
     return res;
   }).catch(() => caches.match(req).then(r => r || caches.match("index.html"))));
+});
+
+// Lock-screen friend alerts sent by the GitHub job through Firebase Cloud Messaging.
+self.addEventListener("push", e => {
+  let d = {};
+  try { const j = e.data ? e.data.json() : {}; d = j.data || j.notification || j || {}; } catch (err) { d = {body: e.data ? e.data.text() : ""}; }
+  const title = d.title || "Park Pack";
+  e.waitUntil(self.registration.showNotification(title, {
+    body: d.body || "", tag: d.tag || undefined, renotify: !!d.tag,
+    icon: "icons/icon-192.png", badge: "icons/icon-192.png", data: {url: "./"}
+  }));
 });
 
 // Friend alerts: tapping one opens (or focuses) Park Pack.
