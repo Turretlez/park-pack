@@ -903,18 +903,24 @@ async function toggleAlerts(){
 /* lock-screen push: this phone's FCM token lives in push/{uid}; a GitHub job sends friend alerts */
 const VAPID = "BAK9kDyGJ1agQoedQoLCukKtF9553oHS4rvKXO16x9zN0eSpd8KFxYU_pk9uZBeFkNwiSwtL0wCcFD0XBgARKpY";
 async function registerPush(loud){
+  const fail = why => { S.pushStatus = why; S.pushOn = false; renderAll(); };
   try {
-    if (S.mode !== "firebase" || !window.firebase?.messaging || !("serviceWorker" in navigator)) return;
-    if (!firebase.messaging.isSupported || !(await firebase.messaging.isSupported())) return;
+    S.pushStatus = "Setting up…";
+    if (S.mode !== "firebase") return fail("not connected to the pack");
+    if (!("serviceWorker" in navigator)) return fail("this browser has no service worker");
+    if (!("PushManager" in window)) return fail(isIOS() && !isStandalone() ? "open Park Pack from your home screen icon, not Safari" : "this browser doesn't support push");
+    if (!window.firebase?.messaging) return fail("push library didn't load");
+    if (firebase.messaging.isSupported && !(await firebase.messaging.isSupported())) return fail("push isn't supported here");
     const reg = await navigator.serviceWorker.ready;
     const token = await firebase.messaging().getToken({vapidKey:VAPID, serviceWorkerRegistration:reg});
-    if (!token) return;
+    if (!token) return fail("no push token was issued");
     if (ls.get("pp.pushToken", "") !== token || loud){
       await firebase.firestore().collection("push").doc(S.uid).set({token, updatedAt:new Date().toISOString()});
       ls.set("pp.pushToken", token);
     }
-    S.pushOn = true;
-  } catch (e){ console.warn("push", e); if (loud) toast("Lock-screen alerts couldn't start on this phone. In-app alerts still work."); }
+    S.pushOn = true; S.pushStatus = "";
+    renderAll();
+  } catch (e){ console.warn("push", e); fail((e && (e.code || e.name || "error")) + ": " + String(e && e.message || e).slice(0, 140)); if (loud) toast("Lock-screen alerts couldn't start. The reason is under Friend alerts."); }
 }
 async function unregisterPush(){
   S.pushOn = false; ls.set("pp.pushToken", "");
@@ -937,7 +943,7 @@ function renderFriendsCard(){
     ${S.mode === "firebase" ? `<button class="btn ghost" id="shareFriend">Share my friend link</button>` : ""}
     <div class="row" style="border-top:1px solid var(--line);padding-top:12px"><div class="grow"><b>Friend alerts</b><div class="small muted">${alertNote}</div></div>
       ${canNotify || S.alerts ? `<button class="btn sm ${S.alerts ? "ghost" : ""}" id="alertBtn">${S.alerts ? "Turn off" : "Turn on"}</button>` : ""}</div>
-    ${S.alerts ? `<p class="small muted">${S.pushOn ? "Lock-screen alerts are on for this phone. They can take up to about 15 minutes to arrive." : "Alerts come in while Park Pack is open. Lock-screen alerts need Park Pack on your home screen."}</p>` : ""}`;
+    ${S.alerts ? `<p class="small muted">${S.pushOn ? "Lock-screen alerts are on for this phone. They can take up to about 15 minutes to arrive." : S.pushStatus ? `Lock-screen alerts: ${esc(S.pushStatus)}` : "Alerts come in while Park Pack is open. Lock-screen alerts need Park Pack on your home screen."}</p>${S.pushOn ? "" : `<button class="linkbtn" id="pushRetry">Retry lock-screen alerts</button>`}` : ""}`;
 }
 function renderFriendsOut(){
   const el = $("#friendsOut"), list = [];
@@ -1739,6 +1745,7 @@ $("#v-pack").addEventListener("click", e => {
   const pf = e.target.closest("[data-pf]"); if (pf){ S.packFilter = pf.dataset.pf; renderPack(); }
 });
 $("#friendsCard").addEventListener("click", e => {
+  if (e.target.closest("#pushRetry")){ registerPush(true); return; }
   if (e.target.closest("#shareFriend")) shareFriendLink();
   if (e.target.closest("#alertBtn")) toggleAlerts();
 });
