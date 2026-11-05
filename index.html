@@ -648,6 +648,7 @@ function allDogs(){
   list.push(...realDogs());
   return list;
 }
+const withOwner = d => { const n = d.mine ? "" : (S.names[d.uid] || d.doc.ownerName || ""); return n ? `with ${esc(n)}` : ""; };
 const ownerName = d => d.mine ? "You" : (S.names[d.uid] || d.doc.ownerName || (d.example ? "Example" : "a neighbor"));
 
 /* ---------- storage backends ---------- */
@@ -1108,7 +1109,7 @@ function renderParkPanel(all, vis){
   el.innerHTML = `<div class="panel-head"><div><h3>${esc(pk.name)}</h3><p class="note" style="margin-top:2px">${esc(pk.note)}</p></div>
       <button class="iconbtn" data-close-park aria-label="Back to all parks">All parks</button></div>
     <div class="rows">${shown.length ? shown.map(p => `<div class="row">${av(p.dog)}
-        <div class="grow"><b>${esc(p.dog.doc.dog.name)}</b> <span class="muted small">with ${esc(ownerName(p.dog))}</span>
+        <div class="grow"><b>${esc(p.dog.doc.dog.name)}</b> <span class="muted small">${withOwner(p.dog)}</span>
           ${p.note ? `<div class="note">${esc(p.note)}</div>` : ""}</div>
         <div style="text-align:right"><div class="t">${range(p.start, p.end)}</div>${statusTag(p)}</div></div>`).join("")
       : `<div class="empty">No pings here ${S.time == null ? dayLabel(S.day).toLowerCase() : "at " + fmt(S.time)}.</div>`}</div>
@@ -1241,7 +1242,7 @@ function renderPack(){
   $("#packFilter").innerHTML = `<button class="chip ${S.packFilter === "all" ? "on" : ""}" data-pf="all">Everyone</button><button class="chip ${S.packFilter === "friends" ? "on" : ""}" data-pf="friends">Friends<span class="n">${nf}</span></button>`;
   const fans = realDogs().filter(d => (d.doc.friends || []).includes(S.uid) && !isFriend(d.uid));
   $("#friendReqs").hidden = !fans.length || S.readOnly;
-  $("#friendReqs").innerHTML = `<h3>Added you as a friend</h3><div class="rows">${fans.map(d => `<div class="row">${av(d)}<div class="grow"><b>${esc(d.doc.dog.name)}</b> <span class="small muted">with ${esc(ownerName(d))}</span></div><button class="btn sm" data-friend="${esc(d.uid)}">Add back</button></div>`).join("")}</div>`;
+  $("#friendReqs").innerHTML = `<h3>Added you as a friend</h3><div class="rows">${fans.map(d => `<div class="row">${av(d)}<div class="grow"><b>${esc(d.doc.dog.name)}</b> <span class="small muted">${withOwner(d)}</span></div><button class="btn sm" data-friend="${esc(d.uid)}">Add back</button></div>`).join("")}</div>`;
   $("#packLede").textContent = dogs.length ? `${dogs.length} ${dogs.length === 1 ? "dog" : "dogs"} on Park Pack, with where they're headed next.` : "No dogs yet.";
   $("#packList").innerHTML = dogs.length ? dogs.map(d => {
     const dg = d.doc.dog, nxt = oneAtATime(d.doc.pings).filter(p => p.date > t || (p.date === t && p.end > nowMin())).sort((a,b) => a.date.localeCompare(b.date) || a.start - b.start)[0];
@@ -1249,7 +1250,7 @@ function renderPack(){
     const np = d.mine ? S.pics.length : (+d.doc.photoCount || 0);
     const avh = np ? av(d, "lg").replace(/^<span/, `<button data-pics="${esc(d.uid)}" aria-label="See photos of ${esc(dg.name)}"`).replace(/<\/span>$/, "</button>").replace(' aria-hidden="true"', "") : av(d, "lg");
     return `<article class="dogcard"><div class="hd">${avh}<div style="min-width:0;flex:1"><h3>${esc(dg.name)}</h3>
-        <div class="small muted">${esc(dg.breed || "Good dog")} · ${d.mine ? "your dog" : `with ${esc(ownerName(d))}`}${np ? ` · <button class="linkbtn" data-pics="${esc(d.uid)}">${np} ${np === 1 ? "photo" : "photos"}</button>` : ""}</div></div>
+        <div class="small muted">${esc(dg.breed || "Good dog")}${d.mine ? " · your dog" : withOwner(d) ? " · " + withOwner(d) : ""}${np ? ` · <button class="linkbtn" data-pics="${esc(d.uid)}">${np} ${np === 1 ? "photo" : "photos"}</button>` : ""}</div></div>
         ${d.mine || d.example || S.mode === "local" ? "" : `<button class="btn sm ${fr ? "ghost" : ""}" data-friend="${esc(d.uid)}" aria-pressed="${fr}">${fr ? "Friends ✓" : "Add friend"}</button>`}</div>
       <div class="tags"><span class="tag">${SIZE[dg.size] || "Medium"}</span><span class="tag ${dg.social === "learning" ? "learn" : ""}">${SOCIAL[dg.social] || "Friendly"}</span>${d.example ? `<span class="tag ex">Example</span>` : ""}${d.mine ? `<span class="tag">You</span>` : ""}</div>
       ${dg.vibe ? `<p class="note">${esc(dg.vibe)}</p>` : ""}
@@ -1494,7 +1495,7 @@ function renderParkSheet(){
     <div class="panel-head"><div><h2 id="sheetTitle">${esc(pk.name)}</h2><p class="note" style="margin-top:4px">${esc(pk.note)}</p></div><button class="iconbtn" data-close-sheet>Close</button></div>
     <div class="label">${esc(dayLabel(S.day))}</div>
     <div class="rows">${here.length ? here.map(p => `<div class="row">${av(p.dog)}
-        <div class="grow"><b>${esc(p.dog.doc.dog.name)}</b> <span class="muted small">with ${esc(ownerName(p.dog))}</span>${p.note ? `<div class="note">${esc(p.note)}</div>` : ""}</div>
+        <div class="grow"><b>${esc(p.dog.doc.dog.name)}</b> <span class="muted small">${withOwner(p.dog)}</span>${p.note ? `<div class="note">${esc(p.note)}</div>` : ""}</div>
         <div style="text-align:right"><div class="t">${range(p.start, p.end)}</div>${statusTag(p)}${p.dog.mine ? myPingButtons(p) : ""}</div></div>`).join("")
       : `<div class="empty">No one's pinged here ${dayLabel(S.day).toLowerCase()} yet.</div>`}</div>
     ${S.readOnly ? "" : `<button class="btn ball go" data-ping-here>Ping ${esc(pk.short)}</button>`}
