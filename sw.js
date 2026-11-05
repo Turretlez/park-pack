@@ -1,5 +1,5 @@
 // Park Pack offline shell. Bump VERSION whenever app files change.
-const VERSION = "parkpack-v10";
+const VERSION = "parkpack-v11";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "firebase-config.js",
   "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png", "icons/apple-touch-icon.png"];
 

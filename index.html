@@ -126,7 +126,8 @@ button{cursor:pointer}
 #map .pin .livering{fill:none;stroke:var(--here);stroke-width:2}
 @media (prefers-reduced-motion:no-preference){#map .pin .livering{animation:ping 2s ease-out infinite;transform-box:fill-box;transform-origin:center}}
 @keyframes ping{from{opacity:.9;transform:scale(1)}to{opacity:0;transform:scale(1.8)}}
-.maplegend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted);margin-top:-6px}
+.maplegend{position:absolute;left:10px;top:10px;display:flex;flex-direction:column;gap:3px;font-size:11.5px;font-weight:600;color:var(--ink);background:color-mix(in srgb,var(--surface) 88%,transparent);border:1px solid var(--line);border-radius:10px;padding:6px 9px;pointer-events:none}
+.mapcredit{position:absolute;right:8px;bottom:5px;font-size:9.5px;color:var(--muted);pointer-events:none}
 .maplegend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px;vertical-align:-1px}
 
 .timebar{display:flex;align-items:center;gap:10px}
@@ -169,6 +170,8 @@ button.av{border:0;padding:0;cursor:pointer}
 .swatches button{width:40px;height:40px;border-radius:50%;border:3px solid var(--surface);box-shadow:0 0 0 1px var(--line);padding:0}
 .swatches button.on{box-shadow:0 0 0 2px var(--ink)}
 .note{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.bio{font-size:14px;line-height:1.5;overflow-wrap:anywhere;white-space:pre-line;border-left:3px solid var(--park-soft);padding-left:10px}
+textarea.input{resize:vertical;min-height:84px;font:inherit}
 
 /* avatars */
 .av{--c:#C9A36B;--t:#1E1A14;flex:none;width:34px;height:34px;border-radius:50%;background:var(--c);color:var(--t);display:inline-grid;place-items:center;font:800 15px var(--f-display);box-shadow:0 0 0 2px var(--surface);position:relative}
@@ -333,10 +336,11 @@ a.linkbtn{text-decoration:none}
 <g id="pins"></g>
 </svg>
 <!-- MAP END -->
+      <div class="maplegend" aria-hidden="true"><span><i style="background:var(--plan)"></i>Planning to go</span><span><i style="background:var(--here)"></i>There now</span><span><i style="border:1.5px dashed var(--park)"></i>Usually free</span></div>
+      <span class="mapcredit">© OpenStreetMap</span>
       <button class="locbtn" id="locBtn" aria-label="Show where I am"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
     </div>
     <div class="here" id="hereBar" hidden></div>
-    <div class="maplegend"><span><i style="background:var(--plan)"></i>planning to go</span><span><i style="background:var(--here)"></i>there now</span><span><i style="border:1.5px dashed var(--park)"></i>regulars (pick a time)</span><span style="margin-left:auto">Map data © OpenStreetMap contributors</span></div>
     <div class="timebar">
       <button class="chip on" id="allDay">All day</button>
       <input type="range" id="timeSlider" min="0" max="31" value="22" aria-label="Time of day">
@@ -416,6 +420,7 @@ a.linkbtn{text-decoration:none}
       </div>
       <div class="field"><span class="label">Coat</span><div class="coats" id="coats"></div></div>
       <div class="field"><label for="f-vibe">Good to know</label><input class="input" id="f-vibe" maxlength="80" placeholder="Loves fetch, shy with big dogs at first"></div>
+      <div class="field"><label for="f-bio">About your dog <span class="muted">(optional)</span></label><textarea class="input" id="f-bio" maxlength="400" rows="4" placeholder="Their story, favorite toy, quirks…"></textarea></div>
       <div class="field"><label for="f-owner">Your first name <span class="muted">(optional)</span></label><input class="input" id="f-owner" maxlength="24" placeholder="So people know who's at the other end of the leash"></div>
       <div class="field"><span class="label">Usual parks</span><div class="checks" id="favParks"></div></div>
       <button class="btn" type="submit" id="saveDog">Save</button>
@@ -619,6 +624,7 @@ function normalize(d){
   x.pings = Array.isArray(x.pings) ? x.pings : [];
   x.favParks = Array.isArray(x.favParks) ? x.favParks : [];
   x.friends = Array.isArray(x.friends) ? x.friends : [];
+  x.pings = oneAtATime(x.pings);
   if (!safePhoto(x.photo)){ delete x.photo; delete x.photoCount; }
   return x;
 }
@@ -685,7 +691,7 @@ function queueSave(delay = 700){
 }
 async function doSave(){
   const t = today();
-  S.my.pings = S.my.pings.filter(p => p.date >= t).slice(-40);
+  S.my.pings = oneAtATime(S.my.pings.filter(p => p.date >= t)).slice(-40);
   const body = JSON.parse(JSON.stringify({...S.my, updatedAt:new Date().toISOString()}));
   ls.set("pp.mine", S.my);
   if (!backend){ S.dirty = false; return; }
@@ -706,11 +712,19 @@ function toast(msg){ const t = $("#toast"); t.textContent = msg; t.hidden = fals
 /* ---------- pings ---------- */
 function pingsOn(dk){
   const out = [];
-  for (const d of mapDogs()) for (const p of d.doc.pings || []) if (p.date === dk && PARK[p.park]) out.push({...p, dog:d});
+  for (const d of mapDogs()) for (const p of oneAtATime(d.doc.pings)) if (p.date === dk && PARK[p.park]) out.push({...p, dog:d});
   return out.sort((a,b) => a.start - b.start);
 }
 const covers = (p, m) => p.start <= m && m < p.end;
 const isLive = p => p.date === today() && covers(p, nowMin());
+function oneAtATime(pings){
+  const kept = [];
+  for (let i = (pings || []).length - 1; i >= 0; i--){
+    const p = pings[i];
+    if (!kept.some(k => k.date === p.date && k.start < p.end && p.start < k.end)) kept.push(p);
+  }
+  return kept.reverse();
+}
 const isPast = p => p.date < today() || (p.date === today() && p.end <= nowMin());
 const statusTag = p => isLive(p) ? `<div class="livetag">There now</div>` : isPast(p) ? `<div class="livetag past">Was there</div>` : `<div class="livetag plan">Planning to go</div>`;
 /* one place at a time: a new ping replaces any of mine that overlaps it */
@@ -818,7 +832,7 @@ function renderFriendsCard(){
 }
 function renderFriendsOut(){
   const el = $("#friendsOut"), list = [];
-  for (const d of friendDogs()) for (const p of d.doc.pings || []) if (PARK[p.park] && p.date === today() && upcoming(p)) list.push({p, d});
+  for (const d of friendDogs()) for (const p of oneAtATime(d.doc.pings)) if (PARK[p.park] && p.date === today() && upcoming(p)) list.push({p, d});
   list.sort((a, b) => a.p.start - b.p.start);
   el.hidden = !list.length;
   if (!list.length) return;
@@ -1100,15 +1114,16 @@ function renderPack(){
   $("#friendReqs").innerHTML = `<h3>Added you as a friend</h3><div class="rows">${fans.map(d => `<div class="row">${av(d)}<div class="grow"><b>${esc(d.doc.dog.name)}</b> <span class="small muted">with ${esc(ownerName(d))}</span></div><button class="btn sm" data-friend="${esc(d.uid)}">Add back</button></div>`).join("")}</div>`;
   $("#packLede").textContent = dogs.length ? `${dogs.length} ${dogs.length === 1 ? "dog" : "dogs"} on Park Pack, with where they're headed next.` : "No dogs yet.";
   $("#packList").innerHTML = dogs.length ? dogs.map(d => {
-    const dg = d.doc.dog, nxt = (d.doc.pings || []).filter(p => p.date > t || (p.date === t && p.end > nowMin())).sort((a,b) => a.date.localeCompare(b.date) || a.start - b.start)[0];
+    const dg = d.doc.dog, nxt = oneAtATime(d.doc.pings).filter(p => p.date > t || (p.date === t && p.end > nowMin())).sort((a,b) => a.date.localeCompare(b.date) || a.start - b.start)[0];
     const fr = !d.mine && isFriend(d.uid);
     const np = d.mine ? S.pics.length : (+d.doc.photoCount || 0);
     const avh = np ? av(d, "lg").replace(/^<span/, `<button data-pics="${esc(d.uid)}" aria-label="See photos of ${esc(dg.name)}"`).replace(/<\/span>$/, "</button>").replace(' aria-hidden="true"', "") : av(d, "lg");
     return `<article class="dogcard"><div class="hd">${avh}<div style="min-width:0;flex:1"><h3>${esc(dg.name)}</h3>
-        <div class="small muted">${esc(dg.breed || "Good dog")} · with ${esc(ownerName(d))}${np ? ` · <button class="linkbtn" data-pics="${esc(d.uid)}">${np} ${np === 1 ? "photo" : "photos"}</button>` : ""}</div></div>
+        <div class="small muted">${esc(dg.breed || "Good dog")} · ${d.mine ? "your dog" : `with ${esc(ownerName(d))}`}${np ? ` · <button class="linkbtn" data-pics="${esc(d.uid)}">${np} ${np === 1 ? "photo" : "photos"}</button>` : ""}</div></div>
         ${d.mine || d.example || S.mode === "local" ? "" : `<button class="btn sm ${fr ? "ghost" : ""}" data-friend="${esc(d.uid)}" aria-pressed="${fr}">${fr ? "Friends ✓" : "Add friend"}</button>`}</div>
       <div class="tags"><span class="tag">${SIZE[dg.size] || "Medium"}</span><span class="tag ${dg.social === "learning" ? "learn" : ""}">${SOCIAL[dg.social] || "Friendly"}</span>${d.example ? `<span class="tag ex">Example</span>` : ""}${d.mine ? `<span class="tag">You</span>` : ""}</div>
       ${dg.vibe ? `<p class="note">${esc(dg.vibe)}</p>` : ""}
+      ${dg.bio ? `<p class="bio">${esc(String(dg.bio).slice(0, 400))}</p>` : ""}
       <div class="small"><span class="label">Next</span> ${nxt && PARK[nxt.park] ? `${esc(PARK[nxt.park].short)}, ${dayLabel(nxt.date)} ${range(nxt.start, nxt.end)}` : `<span class="muted">No pings planned</span>`}</div>
       ${(d.doc.favParks || []).length ? `<div class="small muted">Usually at ${esc(d.doc.favParks.filter(p => PARK[p]).map(p => PARK[p].short).join(", "))}</div>` : ""}
     </article>`;
@@ -1151,7 +1166,7 @@ function fillForm(){
   const d = S.my.dog || {};
   $("#f-name").value = d.name || ""; $("#f-breed").value = d.breed || "";
   $("#f-size").value = d.size || "M"; $("#f-social").value = d.social || "friendly";
-  $("#f-vibe").value = d.vibe || ""; $("#f-owner").value = S.my.ownerName || "";
+  $("#f-vibe").value = d.vibe || ""; $("#f-bio").value = d.bio || ""; $("#f-owner").value = S.my.ownerName || "";
   const coat = $(`#coat-${d.coat || "fawn"}`); if (coat) coat.checked = true;
   PARKS.forEach(p => $(`#fav-${p.id}`).checked = S.my.favParks.includes(p.id));
 }
@@ -1507,7 +1522,7 @@ $("#dogForm").addEventListener("submit", e => {
   const name = $("#f-name").value.trim();
   if (!name){ toast("Your dog needs a name."); $("#f-name").focus(); return; }
   S.my.dog = {name, breed:$("#f-breed").value.trim(), size:$("#f-size").value, social:$("#f-social").value,
-    vibe:$("#f-vibe").value.trim(), coat:(document.querySelector('input[name="coat"]:checked') || {}).value || "fawn"};
+    vibe:$("#f-vibe").value.trim(), ...($("#f-bio").value.trim() ? {bio:$("#f-bio").value.trim().slice(0, 400)} : {}), coat:(document.querySelector('input[name="coat"]:checked') || {}).value || "fawn"};
   S.my.ownerName = $("#f-owner").value.trim();
   S.my.favParks = PARKS.filter(p => $(`#fav-${p.id}`).checked).map(p => p.id);
   queueSave(0);
