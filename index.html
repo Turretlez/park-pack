@@ -116,6 +116,9 @@ button{cursor:pointer}
 #map .pin.here .halo{fill:var(--here)}
 #map .pin .body{fill:var(--plan);stroke:var(--surface);stroke-width:2.5}
 #map .pin.here .body{fill:var(--here)}
+#map .pin.past .body{fill:var(--muted)}
+#map .pin.past .halo{fill:var(--muted)}
+#map .pin.past .count{fill:var(--surface)}
 #map .pin.empty .body{fill:var(--surface);stroke:var(--park);stroke-width:2}
 #map .pin.here .count{fill:var(--on-here)}
 #map .pin .count{fill:var(--on-plan);font:800 12px var(--f-display);text-anchor:middle;dominant-baseline:central}
@@ -205,6 +208,43 @@ textarea.input{resize:vertical;min-height:84px;font:inherit}
 .seg{display:inline-grid;grid-template-columns:1fr 1fr;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:3px;align-self:flex-start}
 .seg button{border:0;background:none;border-radius:9px;padding:7px 14px;font-weight:700;font-size:13px;color:var(--muted)}
 .seg button.on{background:var(--ink);color:var(--bg)}
+.seg3{display:grid;grid-template-columns:repeat(3,1fr);background:var(--bg);border-radius:12px;padding:3px;gap:3px}
+.seg3 button{border:0;background:none;border-radius:9px;padding:10px 6px;font-weight:700;font-size:14px;color:var(--muted)}
+.seg3 button.on{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.seg3 button:disabled{opacity:.4}
+.opts{display:flex;flex-direction:column;gap:6px}
+.opt{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:1.5px solid var(--line);background:var(--surface);border-radius:14px;padding:11px 12px}
+.opt .grow{min-width:0}
+.opt .sub{font-size:12.5px;color:var(--muted)}
+.opt .tick{flex:none;width:22px;height:22px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center}
+.opt.on{border-color:var(--park);background:color-mix(in srgb,var(--park-soft) 55%,var(--surface))}
+.opt.on .tick{border-color:var(--park);background:var(--park)}
+.opt.on .tick::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--on-park)}
+.sheet h2{font-size:22px}
+.step{display:flex;flex-direction:column;gap:8px}
+.step>.label{display:flex;align-items:center;gap:8px}
+.go{width:100%;padding:15px 16px;font-size:16px;border-radius:14px}
+.go small{display:block;font-weight:600;font-size:12.5px;opacity:.75;margin-top:2px}
+.mesum{display:flex;gap:12px;align-items:center}
+.themes{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+.themecard{border:2px solid var(--line);background:var(--tb);border-radius:14px;padding:8px;display:flex;flex-direction:column;gap:6px;text-align:left;color:var(--ti)}
+.themecard.on{border-color:var(--ink);box-shadow:0 0 0 2px var(--surface) inset}
+.themecard .tprev{display:flex;gap:4px;background:var(--ts);border-radius:9px;padding:7px}
+.themecard .tprev i{width:16px;height:16px;border-radius:50%;background:var(--tp)}
+.themecard .tprev i:nth-child(2){background:var(--tk)}
+.themecard .tprev i:nth-child(3){background:#E2A11B}
+.themecard .tn{font-size:12px;font-weight:700}
+body{background-attachment:fixed}
+.confetti{position:fixed;inset:0;pointer-events:none;z-index:80;overflow:hidden}
+.confetti span{position:absolute;top:-30px;animation:fall 1.8s cubic-bezier(.2,.6,.4,1) forwards}
+@keyframes fall{to{transform:translate(var(--dx),105vh) rotate(var(--r));opacity:.2}}
+.tab.on svg{transform:translateY(-1px) scale(1.12)}
+.tab svg{transition:transform .2s}
+.tab.on::after{content:"";width:18px;height:3px;border-radius:2px;background:var(--park);margin-top:-1px}
+.btn{transition:transform .08s}
+.btn:active,.chip:active,.opt:active{transform:scale(.97)}
+.dogcard{border-top:4px solid var(--park-soft)}
+.mesum h3{font-size:20px;font-weight:800}
 .gridwrap{background:var(--surface);border-radius:16px;box-shadow:var(--shadow);padding:10px 10px 12px 4px;overflow-x:auto}
 .grid{display:grid;grid-template-columns:40px repeat(7,minmax(34px,1fr));user-select:none;-webkit-user-select:none;min-width:290px}
 .grid.paint{touch-action:none}
@@ -403,11 +443,13 @@ a.linkbtn{text-decoration:none}
     </div>
     <div class="panel" id="installCard" hidden></div>
     <form class="panel form" id="dogForm" autocomplete="off">
+      <div id="meSum" hidden></div>
       <div class="field" id="picsField" hidden><span class="label">Photos of your pup</span>
         <div class="pics" id="myPics"></div>
         <p class="small muted" id="picsNote">Add up to 6. The starred one is the profile picture everyone sees.</p>
         <input type="file" id="picIn" accept="image/*" multiple hidden>
       </div>
+      <div id="formBody">
       <div class="two">
         <div class="field"><label for="f-name">Dog's name</label><input class="input" id="f-name" maxlength="24" required placeholder="Moose"></div>
         <div class="field"><label for="f-breed">Breed</label><input class="input" id="f-breed" maxlength="32" placeholder="Lab mix"></div>
@@ -423,7 +465,8 @@ a.linkbtn{text-decoration:none}
       <div class="field"><label for="f-bio">About your dog <span class="muted">(optional)</span></label><textarea class="input" id="f-bio" maxlength="400" rows="4" placeholder="Their story, favorite toy, quirks…"></textarea></div>
       <div class="field"><label for="f-owner">Your first name <span class="muted">(optional)</span></label><input class="input" id="f-owner" maxlength="24" placeholder="So people know who's at the other end of the leash"></div>
       <div class="field"><span class="label">Usual parks</span><div class="checks" id="favParks"></div></div>
-      <button class="btn" type="submit" id="saveDog">Save</button>
+      <div class="two"><button class="btn ghost" type="button" id="cancelEdit">Cancel</button><button class="btn" type="submit" id="saveDog">Save</button></div>
+      </div>
       <p class="small muted" id="formNote" hidden></p>
     </form>
     <div class="panel" id="friendsCard"></div>
@@ -609,7 +652,10 @@ function onDocs(list){
   for (const {id, data} of list) next[id] = data;
   for (const [id, d] of Object.entries(next)) if (id !== S.uid && S.docs[id] && (S.docs[id].photo !== d.photo || S.docs[id].photoCount !== d.photoCount)) delete S.picCache[id];
   S.docs = next;
-  if (next[S.uid] && !S.dirty && !S.loadedMine){ S.my = normalize(next[S.uid]); S.loadedMine = true; fillForm(); }
+  const srv = next[S.uid];
+  if (srv && !S.dirty && (!S.loadedMine || String(srv.updatedAt || "") > String(S.my.updatedAt || ""))){
+    S.my = normalize(srv); ls.set("pp.mine", S.my); S.loadedMine = true; if (!S.editing) fillForm();
+  }
   else if (!next[S.uid]) S.loadedMine = true;
   const n = Object.values(next).filter(d => d?.dog?.name).length;
   setStatus(`Live · ${n} ${n === 1 ? "dog" : "dogs"}`, true);
@@ -695,7 +741,7 @@ async function doSave(){
   const body = JSON.parse(JSON.stringify({...S.my, updatedAt:new Date().toISOString()}));
   ls.set("pp.mine", S.my);
   if (!backend){ S.dirty = false; return; }
-  try { await backend.save(body); S.dirty = false; }
+  try { await backend.save(body); S.my.updatedAt = body.updatedAt; ls.set("pp.mine", S.my); S.dirty = false; }
   catch (e){
     console.warn(e);
     if (e?.code === "invalid_argument" || e?.code === "permission-denied"){
@@ -897,6 +943,7 @@ function checkIn(park){
   const gone = addMyPing({id:uidGen(), date:today(), park, start, end});
   queueSave(0);
   S.day = today(); S.park = park; S.time = null;
+  confetti();
   toast(`Checked in at ${PARK[park].short} until ${fmt(end)}.${replacedNote(gone)}`);
   renderAll();
 }
@@ -939,9 +986,10 @@ function renderMap(){
     const here = vis.filter(p => p.park === pk.id);
     const n = new Set(here.map(p => p.dog.uid)).size;
     const live = vis.some(p => p.park === pk.id && isLive(p));
+    const done = n && !live && vis.filter(p => p.park === pk.id).every(isPast);
     const regs = S.time == null ? [] : regularsAt(pk.id, S.day, S.time, new Set(here.map(p => p.dog.uid)));
     const r = n ? 11 + Math.min(n, 6)*1.6 : 6;
-    h += `<g class="pin ${n ? "" : "empty"} ${live ? "here" : ""} ${pk.home ? "home" : ""} ${S.park === pk.id ? "sel" : ""}" data-park="${pk.id}" transform="translate(${pk.x},${pk.y})" tabindex="0" role="button" aria-label="${esc(pk.name)}: ${n} dogs">`;
+    h += `<g class="pin ${n ? "" : "empty"} ${live ? "here" : ""} ${done ? "past" : ""} ${pk.home ? "home" : ""} ${S.park === pk.id ? "sel" : ""}" data-park="${pk.id}" transform="translate(${pk.x},${pk.y})" tabindex="0" role="button" aria-label="${esc(pk.name)}: ${n} dogs">`;
     if (n) h += `<circle class="halo" r="${r + 7}"/>`;
     if (regs.length) h += `<circle class="reg" r="${r + 5}"/>`;
     if (live) h += `<circle class="livering" r="${r + 2}"/>`;
@@ -960,7 +1008,7 @@ function renderMap(){
 }
 function renderParkPanel(all, vis){
   const el = $("#parkPanel");
-  if (!S.park){
+  if (true){
     const rows = PARKS.map(pk => ({pk, n:new Set(vis.filter(p => p.park === pk.id).map(p => p.dog.uid)).size, list:vis.filter(p => p.park === pk.id)}))
       .sort((a,b) => (b.pk.home ? 1 : 0) - (a.pk.home ? 1 : 0) || b.n - a.n || a.pk.name.localeCompare(b.pk.name));
     const max = Math.max(1, ...rows.map(r => r.n));
@@ -1170,7 +1218,21 @@ function fillForm(){
   const coat = $(`#coat-${d.coat || "fawn"}`); if (coat) coat.checked = true;
   PARKS.forEach(p => $(`#fav-${p.id}`).checked = S.my.favParks.includes(p.id));
 }
+S.editing = false;
+function startEdit(){ S.editing = true; fillForm(); renderMe(); $("#f-name").focus(); }
+function renderMeSummary(){
+  const has = !!S.my.dog?.name, editing = S.editing || !has;
+  $("#formBody").hidden = !editing; $("#meSum").hidden = editing;
+  $("#cancelEdit").hidden = !has;
+  if (editing) return;
+  const dg = S.my.dog, me = {uid:S.uid, doc:S.my, mine:true};
+  $("#meSum").innerHTML = `<div class="mesum">${av(me, "lg")}<div class="grow" style="min-width:0"><h3>${esc(dg.name)}</h3><div class="small muted">${esc(dg.breed || "Good dog")}${S.my.ownerName ? ` · with ${esc(S.my.ownerName)}` : ""}</div></div>
+      <button class="btn sm ghost" type="button" id="editDog">Edit</button></div>
+    <div class="tags"><span class="tag">${SIZE[dg.size] || "Medium"}</span><span class="tag ${dg.social === "learning" ? "learn" : ""}">${SOCIAL[dg.social] || "Friendly"}</span></div>
+    ${dg.vibe ? `<p class="note">${esc(dg.vibe)}</p>` : ""}${dg.bio ? `<p class="bio">${esc(dg.bio)}</p>` : ""}`;
+}
 function renderMe(){
+  renderMeSummary();
   $("#meTitle").textContent = S.my.dog?.name ? S.my.dog.name : "Your dog";
   $("#saveDog").textContent = S.my.dog?.name ? "Save changes" : "Add my dog";
   $("#saveDog").disabled = S.readOnly;
@@ -1248,46 +1310,110 @@ if ("serviceWorker" in navigator && !window.claude && (location.protocol === "ht
 const sheetState = {};
 function openSheet(prefill = {}){
   if (S.readOnly){ toast("You're viewing only, so you can't post pings yet."); return; }
-  const now = nowMin();
-  const roundUp = Math.min(Math.max(Math.ceil(now/30)*30, START), START + (NS-2)*STEP);
-  Object.assign(sheetState, {park:prefill.park || S.park || (nearestPark()?.m <= 400 ? nearestPark().pk.id : null) || S.my.favParks[0] || "rowes", date:prefill.date || (S.day >= today() ? S.day : today()),
-    start:prefill.start ?? roundUp, end:prefill.end ?? roundUp + 60, note:""});
+  const now = nowMin(), t = today();
+  const near = nearestPark();
+  const date = prefill.date && prefill.date >= t ? prefill.date : t;
+  let when = "now", start = null, dur = 60;
+  if (prefill.start != null){
+    dur = Math.max(30, (prefill.end ?? prefill.start + 60) - prefill.start);
+    if (date !== t) when = "day";
+    else if (prefill.start > now) when = "later";
+    if (when !== "now") start = prefill.start;
+  } else if (date !== t) { when = "day"; }
+  if (when === "now" && !canNow()) when = laterSlots().length ? "later" : "day";
+  Object.assign(sheetState, {mode:"ping", park:prefill.park || S.park || (near && near.m <= 400 ? near.pk.id : null) || S.my.favParks[0] || "rowes",
+    date: when === "day" && date === t ? dateKey(addDays(new Date(), 1)) : date, when, start, dur, note:"", allParks:false, showNote:false});
+  showSheet();
+}
+function openParkSheet(id){ Object.assign(sheetState, {mode:"park", park:id}); S.park = id; showSheet(); }
+function showSheet(){
   renderSheet();
   $("#scrim").hidden = false; $("#sheet").hidden = false;
   document.body.style.overflow = "hidden";
 }
-function closeSheet(){ $("#scrim").hidden = true; $("#sheet").hidden = true; document.body.style.overflow = ""; }
-function timeOpts(sel, min = START, max = START + NS*STEP){
-  let h = ""; for (let m = min; m <= max; m += STEP) h += `<option value="${m}" ${m === sel ? "selected" : ""}>${fmt(m)}</option>`; return h;
+const LAST = START + NS*STEP;                       // 10 PM
+const canNow = () => nowMin() < LAST - 15;
+function laterSlots(){ const out = []; for (let m = Math.ceil((nowMin() + 1)/30)*30; m < LAST; m += 30) if (m >= START) out.push(m); return out; }
+function daySlots(){ const out = []; for (let m = START; m < LAST; m += 30) out.push(m); return out; }
+function pingTimes(){
+  const st = sheetState;
+  let date = st.date, start;
+  if (st.when === "now"){ date = today(); start = Math.max(START, Math.floor(nowMin()/30)*30); }
+  else if (st.when === "later"){ date = today(); const ls = laterSlots(); start = ls.includes(st.start) ? st.start : (ls[0] ?? START); }
+  else { start = st.start ?? 17*60; if (date <= today()) date = dateKey(addDays(new Date(), 1)); }
+  return {date, start, end:Math.min(start + st.dur, LAST)};
+}
+function parkSuggestions(){
+  const near = nearestPark(), dk = today();
+  const busy = PARKS.map(pk => ({id:pk.id, n:new Set(pingsOn(dk).filter(p => p.park === pk.id).map(p => p.dog.uid)).size})).filter(x => x.n).sort((a,b) => b.n - a.n).map(x => x.id);
+  const ids = [sheetState.park, near && near.m <= 1500 ? near.pk.id : null, ...S.my.favParks, "rowes", ...busy].filter(id => id && PARK[id]);
+  return [...new Set(ids)].slice(0, 4);
+}
+function parkSub(id){
+  const n = new Set(pingsOn(today()).filter(p => p.park === id).map(p => p.dog.uid)).size;
+  const parts = [];
+  if (geo.pos && PARK_LL[id]){ const m = distM(geo.pos, PARK_LL[id]); parts.push(m < 150 ? "You're here" : `${Math.max(1, Math.round(m/80))} min walk`); }
+  if (n) parts.push(`${n} ${n === 1 ? "dog" : "dogs"} today`);
+  if (PARK[id].home) parts.push("Main spot");
+  return parts.join(" · ");
 }
 function renderSheet(){
-  const el = $("#sheetIn");
+  const el = $("#sheetIn"), st = sheetState;
+  if (st.mode === "park"){ renderParkSheet(); return; }
   if (!S.my.dog?.name){
     el.innerHTML = `<div class="grab"></div><h2 id="sheetTitle">Add your dog first</h2><p class="muted">Other owners need to know who's coming. It takes 20 seconds.</p><button class="btn" data-go-me>Set up my dog</button><button class="btn ghost" data-close-sheet>Not now</button>`;
     return;
   }
-  const st = sheetState, base = new Date();
+  const sugg = parkSuggestions();
+  const opt = id => `<button class="opt ${st.park === id ? "on" : ""}" data-sp="${id}"><span class="tick"></span><span class="grow"><b>${esc(PARK[id].short)}</b>${parkSub(id) ? `<div class="sub">${esc(parkSub(id))}</div>` : ""}</span></button>`;
+  const later = laterSlots(), times = st.when === "later" ? later : daySlots();
+  const pt = pingTimes();
+  const timeChip = m => `<button class="chip ${pt.start === m ? "on" : ""}" data-st="${m}">${fmt(m)}</button>`;
+  const durs = [[30,"30 min"],[60,"1 hr"],[90,"1½ hr"],[120,"2 hr"]];
+  const whenTxt = st.when === "now" ? `now until ${fmt(pt.end)}` : `${dayLabel(pt.date) === "Today" ? "today" : dayLabel(pt.date)}, ${range(pt.start, pt.end)}`;
   el.innerHTML = `<div class="grab"></div>
-    <div class="panel-head"><h2 id="sheetTitle">Where's ${esc(S.my.dog.name)} headed?</h2><button class="iconbtn" data-close-sheet>Cancel</button></div>
-    <div class="field"><span class="label">Park</span><div class="wrapchips">${PARKS.map(p => `<button class="chip ${st.park === p.id ? "on" : ""}" data-sp="${p.id}">${esc(p.short)}</button>`).join("")}</div></div>
-    <div class="field"><span class="label">Day</span><div class="chips">${Array.from({length:7}, (_, i) => dateKey(addDays(base, i))).map(k => `<button class="chip ${st.date === k ? "on" : ""}" data-sd="${k}">${dayLabel(k)}</button>`).join("")}</div></div>
-    <div class="two">
-      <div class="field"><label for="s-start">From</label><select class="input" id="s-start">${timeOpts(st.start, START, START + (NS-1)*STEP)}</select></div>
-      <div class="field"><label for="s-end">Until</label><select class="input" id="s-end">${timeOpts(st.end, st.start + STEP)}</select></div>
-    </div>
-    <div class="field"><label for="s-note">Note <span class="muted">(optional)</span></label><input class="input" id="s-note" maxlength="60" placeholder="Bringing the frisbee" value="${esc(st.note)}"></div>
-    <div class="two"><button class="btn ghost" data-now>Leaving now, 1 hr</button><button class="btn ball" data-save-ping>Ping it</button></div>`;
+    <div class="panel-head"><h2 id="sheetTitle">Ping a park</h2><button class="iconbtn" data-close-sheet>Cancel</button></div>
+    <p class="muted small" style="margin-top:-8px">Tell the pack where ${esc(S.my.dog.name)} will be. Friends get an alert.</p>
+    <div class="step"><span class="label">1 · Where</span>
+      <div class="opts">${(st.allParks ? PARKS.map(p => p.id) : sugg).map(opt).join("")}</div>
+      ${st.allParks ? "" : `<button class="linkbtn" data-allparks style="align-self:flex-start">Other parks…</button>`}</div>
+    <div class="step"><span class="label">2 · When</span>
+      <div class="seg3"><button class="${st.when === "now" ? "on" : ""}" data-when="now" ${canNow() ? "" : "disabled"}>Now</button><button class="${st.when === "later" ? "on" : ""}" data-when="later" ${later.length ? "" : "disabled"}>Later today</button><button class="${st.when === "day" ? "on" : ""}" data-when="day">Another day</button></div>
+      ${st.when === "day" ? `<div class="chips">${Array.from({length:6}, (_, i) => dateKey(addDays(new Date(), i + 1))).map(k => `<button class="chip ${pt.date === k ? "on" : ""}" data-sd="${k}">${dayLabel(k)}</button>`).join("")}</div>` : ""}
+      ${st.when === "now" ? "" : `<div class="chips" id="timeChips">${times.map(timeChip).join("")}</div>`}
+      <div class="chips">${durs.map(([m, l]) => `<button class="chip ${st.dur === m ? "on" : ""}" data-dur="${m}">${l}</button>`).join("")}</div></div>
+    ${st.showNote ? `<div class="field"><label for="s-note">Note</label><input class="input" id="s-note" maxlength="60" placeholder="Bringing the frisbee" value="${esc(st.note)}"></div>`
+      : `<button class="linkbtn" data-shownote style="align-self:flex-start">+ Add a note</button>`}
+    <button class="btn ball go" data-save-ping>Ping ${esc(PARK[st.park].short)}<small>${esc(whenTxt)}</small></button>`;
+  const on = $("#timeChips .chip.on"); if (on) on.scrollIntoView({block:"nearest", inline:"center"});
 }
+function renderParkSheet(){
+  const el = $("#sheetIn"), pk = PARK[sheetState.park];
+  const all = pingsOn(S.day);
+  const here = all.filter(p => p.park === pk.id);
+  el.innerHTML = `<div class="grab"></div>
+    <div class="panel-head"><div><h2 id="sheetTitle">${esc(pk.name)}</h2><p class="note" style="margin-top:4px">${esc(pk.note)}</p></div><button class="iconbtn" data-close-sheet>Close</button></div>
+    <div class="label">${esc(dayLabel(S.day))}</div>
+    <div class="rows">${here.length ? here.map(p => `<div class="row">${av(p.dog)}
+        <div class="grow"><b>${esc(p.dog.doc.dog.name)}</b> <span class="muted small">with ${esc(ownerName(p.dog))}</span>${p.note ? `<div class="note">${esc(p.note)}</div>` : ""}</div>
+        <div style="text-align:right"><div class="t">${range(p.start, p.end)}</div>${statusTag(p)}</div></div>`).join("")
+      : `<div class="empty">No one's pinged here ${dayLabel(S.day).toLowerCase()} yet.</div>`}</div>
+    ${S.readOnly ? "" : `<button class="btn ball go" data-ping-here>Ping ${esc(pk.short)}</button>`}
+    ${pk.ll || PARK_LL[pk.id] ? `<a class="linkbtn" style="text-align:center" target="_blank" rel="noopener" href="https://maps.apple.com/?daddr=${PARK_LL[pk.id] ? PARK_LL[pk.id].join(",") : ""}&dirflg=w">Walking directions ↗</a>` : ""}`;
+}
+function closeSheet(){ $("#scrim").hidden = true; $("#sheet").hidden = true; document.body.style.overflow = ""; if (sheetState.mode === "park"){ sheetState.mode = "ping"; S.park = null; renderMap(); } }
 function savePing(){
   const st = sheetState;
-  st.start = +$("#s-start").value; st.end = +$("#s-end").value; st.note = $("#s-note").value.trim();
-  if (st.end <= st.start){ toast("Pick an end time after the start."); return; }
-  const gone = addMyPing({id:uidGen(), date:st.date, park:st.park, start:st.start, end:st.end, ...(st.note ? {note:st.note} : {})});
+  if (st.showNote && $("#s-note")) st.note = $("#s-note").value.trim();
+  const {date, start, end} = pingTimes();
+  if (end <= start){ toast("Pings run until 10 PM. Pick an earlier time."); return; }
+  const gone = addMyPing({id:uidGen(), date, park:st.park, start, end, ...(st.note ? {note:st.note} : {})});
   queueSave(0);
   closeSheet();
-  S.day = st.date; S.park = st.park; S.time = null;
+  confetti();
+  S.day = date; S.park = null; S.time = null;
   setTab("map");
-  toast(`Pinged ${PARK[st.park].short}, ${dayLabel(st.date).toLowerCase() === "today" ? "today" : dayLabel(st.date)} ${range(st.start, st.end)}.${replacedNote(gone)}`);
+  toast(`Pinged ${PARK[st.park].short}, ${st.when === "now" ? "now until " + fmt(end) : (dayLabel(date) === "Today" ? "today " : dayLabel(date) + " ") + range(start, end)}.${replacedNote(gone)}`);
 }
 
 /* ---------- PHOTOS (gallery in photos/{uid}; small avatar copy on the owner doc) ---------- */
@@ -1368,38 +1494,64 @@ function closePhotos(){ $("#pv").hidden = true; $("#pv").innerHTML = ""; documen
 $("#pv").addEventListener("click", e => { if (e.target.closest("[data-pvclose]") || e.target.classList.contains("strip") || e.target.parentElement?.classList.contains("strip")) closePhotos(); });
 addEventListener("keydown", e => { if (e.key === "Escape" && !$("#pv").hidden) closePhotos(); });
 
-/* ---------- LOOK (this phone only) ---------- */
-const ACCENTS = {
-  green: {n:"Park green",  l:["#2F6B45","#D6E8D9"], d:["#74C38B","#21402B"]},
-  blue:  {n:"Harbor blue", l:["#1F5F99","#D6E4F2"], d:["#7DB3E8","#1C3247"]},
-  sunset:{n:"Sunset",      l:["#B5501F","#F5DFD2"], d:["#F0956A","#43271A"]},
-  berry: {n:"Berry",       l:["#B0305A","#F4D9E2"], d:["#F08AAB","#45212E"]},
-  plum:  {n:"Plum",        l:["#6B3FA0","#E5DCF2"], d:["#B898E8","#2E2442"]},
-  slate: {n:"Slate",       l:["#3F5160","#DCE2E7"], d:["#A3B5C4","#26313A"]},
+/* ---------- LOOK (this phone only): themes, appearance, start tab, celebrations ---------- */
+const VARS = ["--bg","--surface","--ink","--muted","--line","--park","--on-park","--park-soft","--water","--land","--street","--street-major","--street-case","--bldg","--grass","--ball","--on-ball"];
+const T = (n, dark, paws, v) => ({n, dark, paws, v:Object.fromEntries(VARS.map((k, i) => [k, v[i]]))});
+const THEMES = {
+  classic: {n:"Park green"},
+  sunset:   T("Sunset pop", false, true, ["#FFF1E6","#FFFFFF","#3A1F14","#8A6352","#F3D3BF","#E2552E","#FFFFFF","#FFD9C7","#9FD3E6","#FFF6EE","#FFFFFF","#FFFFFF","#F0C9AE","#F8E1D2","#CDEBB5","#FFC93C","#3A1F14"]),
+  bubblegum:T("Bubblegum", false, true, ["#FFEAF4","#FFFFFF","#3B1030","#8E5579","#F6C8DF","#E0338C","#FFFFFF","#FFD1E7","#BFE3FF","#FFF3F9","#FFFFFF","#FFFFFF","#F2C3DA","#FBDDEB","#C9F0D3","#7DE2D1","#10332D"]),
+  ocean:    T("Harbor", false, true, ["#E4F6F7","#FFFFFF","#0E2E33","#4F7479","#BFE3E6","#0E8C96","#FFFFFF","#C6EEF0","#7FC8E8","#F1FBFB","#FFFFFF","#FFFFFF","#B9DADD","#DCEFF0","#BDE8C4","#FFD84D","#2A2200"]),
+  pumpkin:  T("Pumpkin spice", false, true, ["#FBEBD7","#FFF9F1","#3B2414","#85634A","#EBCFAE","#C8561C","#FFFFFF","#F7D6B5","#A9CBD6","#FDF3E6","#FFF9F1","#FFF9F1","#E4C39E","#F2DCC0","#D8D59A","#F2A541","#3B2414"]),
+  lemonade: T("Lemonade", false, true, ["#FFF9D6","#FFFFFF","#2E2A0B","#77703A","#F0E39A","#2E8B57","#FFFFFF","#E3F3C9","#A8DCF0","#FFFBE8","#FFFFFF","#FFFFFF","#EADB94","#F7EDB8","#CDEFA8","#FF7AA2","#330013"]),
+  neon:     T("Midnight neon", true, true, ["#120B26","#1E1440","#F2ECFF","#A99BD1","#33265E","#39F5A8","#0B1A14","#213D45","#0D1E3D","#170F33","#2E2257","#3E2F72","#0B0720","#241A4A","#1A3A3A","#FF4FD8","#22001C"]),
 };
-const look = {theme:"auto", accent:"green", start:"map", ...ls.get("pp.look", {})};
+const look = {theme:"auto", palette:"classic", start:"map", party:true, ...ls.get("pp.look", {})};
+if (!THEMES[look.palette]) look.palette = "classic";
 const darkMQ = matchMedia("(prefers-color-scheme: dark)");
+const pawSvg = c => `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><g fill='${c}' opacity='.07'><g transform='translate(22 26) rotate(-18)'><ellipse cx='0' cy='6' rx='7' ry='6'/><circle cx='-7' cy='-3' r='2.6'/><circle cx='-2.5' cy='-7' r='2.6'/><circle cx='2.5' cy='-7' r='2.6'/><circle cx='7' cy='-3' r='2.6'/></g><g transform='translate(84 82) rotate(22)'><ellipse cx='0' cy='6' rx='7' ry='6'/><circle cx='-7' cy='-3' r='2.6'/><circle cx='-2.5' cy='-7' r='2.6'/><circle cx='2.5' cy='-7' r='2.6'/><circle cx='7' cy='-3' r='2.6'/></g></g></svg>`)}")`;
 function applyLook(){
-  const root = document.documentElement;
-  if (look.theme === "auto") delete root.dataset.theme; else root.dataset.theme = look.theme;
-  const dark = look.theme === "dark" || (look.theme === "auto" && darkMQ.matches);
-  const a = ACCENTS[look.accent];
-  if (!a || look.accent === "green"){ ["--park","--park-soft","--on-park"].forEach(v => root.style.removeProperty(v)); }
-  else { const [c, soft] = dark ? a.d : a.l; root.style.setProperty("--park", c); root.style.setProperty("--park-soft", soft); root.style.setProperty("--on-park", dark ? "#0F1813" : "#FFFFFF"); }
-  const meta = document.querySelector('meta[name="theme-color"]'); if (meta) meta.content = getComputedStyle(root).getPropertyValue("--park").trim() || "#2F6B45";
+  const root = document.documentElement, th = THEMES[look.palette];
+  VARS.forEach(v => root.style.removeProperty(v));
+  ["--park","--park-soft","--on-park"].forEach(v => root.style.removeProperty(v));
+  if (th.v){
+    root.dataset.theme = th.dark ? "dark" : "light";
+    for (const [k, v] of Object.entries(th.v)) root.style.setProperty(k, v);
+  } else if (look.theme === "auto") delete root.dataset.theme; else root.dataset.theme = look.theme;
+  document.body.style.backgroundImage = th.paws ? pawSvg(th.v["--park"]) : "";
+  const meta = document.querySelector('meta[name="theme-color"]'); if (meta) meta.content = getComputedStyle(root).getPropertyValue("--bg").trim() || "#EEF2EC";
 }
 darkMQ.addEventListener?.("change", applyLook);
 function renderLook(){
   const chip = (k, v, label) => `<button class="chip ${look[k] === v ? "on" : ""}" data-look="${k}" data-v="${v}">${label}</button>`;
+  const card = (k, th) => { const v = th.v || {"--bg":"#EEF2EC","--surface":"#FFFFFF","--park":"#2F6B45","--ball":"#D4EC3F","--ink":"#17251D"};
+    return `<button class="themecard ${look.palette === k ? "on" : ""}" data-look="palette" data-v="${k}" style="--tb:${v["--bg"]};--ts:${v["--surface"]};--tp:${v["--park"]};--tk:${v["--ball"]};--ti:${v["--ink"]}">
+      <span class="tprev"><i></i><i></i><i></i></span><span class="tn">${th.n}</span></button>`; };
   $("#lookCard").innerHTML = `<div class="panel-head"><h3>Look &amp; feel</h3><span class="small muted">Just on this phone</span></div>
-    <div class="field"><span class="label">Appearance</span><div class="chips">${chip("theme","auto","Match phone")}${chip("theme","light","Light")}${chip("theme","dark","Dark")}</div></div>
-    <div class="field"><span class="label">Color</span><div class="swatches">${Object.entries(ACCENTS).map(([k, a]) => `<button class="${look.accent === k ? "on" : ""}" data-look="accent" data-v="${k}" style="background:${a.l[0]}" aria-label="${a.n}" title="${a.n}"></button>`).join("")}</div></div>
-    <div class="field"><span class="label">Open to</span><div class="chips">${chip("start","map","Map")}${chip("start","events","Events")}${chip("start","pack","Pack")}${chip("start","me","My dog")}</div></div>`;
+    <div class="field"><span class="label">Theme</span><div class="themes">${Object.entries(THEMES).map(([k, th]) => card(k, th)).join("")}</div></div>
+    ${THEMES[look.palette].v ? "" : `<div class="field"><span class="label">Light or dark</span><div class="chips">${chip("theme","auto","Match phone")}${chip("theme","light","Light")}${chip("theme","dark","Dark")}</div></div>`}
+    <div class="field"><span class="label">Open to</span><div class="chips">${chip("start","map","Map")}${chip("start","events","Events")}${chip("start","pack","Pack")}${chip("start","me","My dog")}</div></div>
+    <div class="row" style="padding:0"><div class="grow"><b>Paw confetti</b><div class="small muted">A little party when you ping a park</div></div><button class="btn sm ${look.party ? "" : "ghost"}" data-look="party" data-v="${look.party ? "" : "1"}">${look.party ? "On" : "Off"}</button></div>`;
 }
 $("#lookCard").addEventListener("click", e => {
   const b = e.target.closest("[data-look]"); if (!b) return;
-  look[b.dataset.look] = b.dataset.v; ls.set("pp.look", look); applyLook(); renderLook();
+  const k = b.dataset.look; look[k] = k === "party" ? !!b.dataset.v : b.dataset.v;
+  ls.set("pp.look", look); applyLook(); renderLook();
+  if (k === "palette") confetti(10);
 });
+function confetti(n = 22){
+  if (!look.party || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const cs = getComputedStyle(document.documentElement), cols = ["--park","--ball","--plan","--here","--live"].map(v => cs.getPropertyValue(v).trim());
+  const box = document.createElement("div"); box.className = "confetti"; box.setAttribute("aria-hidden", "true");
+  for (let i = 0; i < n; i++){
+    const el = document.createElement("span");
+    el.textContent = i % 3 ? "●" : "🐾";
+    el.style.cssText = `left:${Math.random()*100}%;color:${cols[i % cols.length]};font-size:${10 + Math.random()*14}px;animation-delay:${Math.random()*.25}s;--dx:${(Math.random()-.5)*120}px;--r:${(Math.random()-.5)*720}deg`;
+    box.appendChild(el);
+  }
+  document.body.appendChild(box);
+  setTimeout(() => box.remove(), 2200);
+}
 applyLook();
 
 /* ---------- tabs + render ---------- */
@@ -1427,11 +1579,10 @@ document.querySelector(".tabs").addEventListener("click", e => { const b = e.tar
 $("#dayChips").addEventListener("click", e => { const b = e.target.closest("[data-day]"); if (b){ S.day = b.dataset.day; renderMap(); } });
 $("#allDay").addEventListener("click", () => { S.time = S.time == null ? slotMin(+$("#timeSlider").value) : null; renderMap(); });
 $("#timeSlider").addEventListener("input", e => { S.time = slotMin(+e.target.value); renderMap(); });
-$("#pins").addEventListener("click", e => { const p = e.target.closest("[data-park]"); if (p){ S.park = S.park === p.dataset.park ? null : p.dataset.park; renderMap(); } });
-$("#pins").addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.dataset?.park){ e.preventDefault(); S.park = e.target.dataset.park; renderMap(); } });
+$("#pins").addEventListener("click", e => { const p = e.target.closest("[data-park]"); if (p){ openParkSheet(p.dataset.park); renderMap(); } });
+$("#pins").addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.dataset?.park){ e.preventDefault(); openParkSheet(e.target.dataset.park); renderMap(); } });
 $("#parkPanel").addEventListener("click", e => {
-  const pr = e.target.closest(".parkrow"); if (pr){ S.park = pr.dataset.park; renderMap(); return; }
-  if (e.target.closest("[data-close-park]")){ S.park = null; renderMap(); return; }
+  const pr = e.target.closest(".parkrow[data-park]"); if (pr){ openParkSheet(pr.dataset.park); renderMap(); return; }
   const pp = e.target.closest("[data-ping-park]"); if (pp) openSheet({park:pp.dataset.pingPark, date:S.day, ...(S.time != null ? {start:S.time, end:S.time + 60} : {})});
 });
 $("#fab").addEventListener("click", () => openSheet());
@@ -1444,7 +1595,7 @@ $("#hereBar").addEventListener("click", e => {
   const pp = e.target.closest("[data-ping-park]"); if (pp) openSheet({park:pp.dataset.pingPark});
 });
 $("#whoChips").addEventListener("click", e => { const b = e.target.closest("[data-who]"); if (b){ S.who = b.dataset.who; ls.set("pp.who", S.who); renderMap(); } });
-$("#friendsOut").addEventListener("click", e => { const b = e.target.closest("[data-park]"); if (b){ S.day = today(); S.park = b.dataset.park; S.time = null; renderMap(); } });
+$("#friendsOut").addEventListener("click", e => { const b = e.target.closest("[data-park]"); if (b){ S.day = today(); S.time = null; openParkSheet(b.dataset.park); renderMap(); } });
 $("#v-pack").addEventListener("click", e => {
   const f = e.target.closest("[data-friend]"); if (f){ toggleFriend(f.dataset.friend); return; }
   const pc = e.target.closest("[data-pics]"); if (pc){ openPhotos(pc.dataset.pics); return; }
@@ -1526,8 +1677,13 @@ $("#dogForm").addEventListener("submit", e => {
   S.my.ownerName = $("#f-owner").value.trim();
   S.my.favParks = PARKS.filter(p => $(`#fav-${p.id}`).checked).map(p => p.id);
   queueSave(0);
+  S.editing = false;
   toast(`Saved ${name}.`);
   renderAll();
+});
+$("#dogForm").addEventListener("click", e => {
+  if (e.target.closest("#editDog")) startEdit();
+  if (e.target.closest("#cancelEdit")){ S.editing = false; fillForm(); renderMe(); }
 });
 $("#myPings").addEventListener("click", e => {
   const b = e.target.closest("[data-unping]"); if (!b) return;
@@ -1538,25 +1694,20 @@ $("#myPings").addEventListener("click", e => {
 $("#scrim").addEventListener("click", closeSheet);
 addEventListener("keydown", e => { if (e.key === "Escape" && !$("#sheet").hidden) closeSheet(); });
 $("#sheetIn").addEventListener("click", e => {
-  const t = e.target;
+  const t = e.target, st = sheetState;
+  const keepNote = () => { if ($("#s-note")) st.note = $("#s-note").value; };
   if (t.closest("[data-close-sheet]")){ closeSheet(); return; }
-  if (t.closest("[data-go-me]")){ closeSheet(); setTab("me"); $("#f-name").focus(); return; }
-  const sp = t.closest("[data-sp]"); if (sp){ sheetState.note = $("#s-note")?.value || ""; sheetState.start = +$("#s-start").value; sheetState.end = +$("#s-end").value; sheetState.park = sp.dataset.sp; renderSheet(); return; }
-  const sd = t.closest("[data-sd]"); if (sd){ sheetState.note = $("#s-note")?.value || ""; sheetState.start = +$("#s-start").value; sheetState.end = +$("#s-end").value; sheetState.date = sd.dataset.sd; renderSheet(); return; }
-  if (t.closest("[data-now]")){
-    const n = Math.max(START, Math.floor(nowMin()/30)*30);
-    Object.assign(sheetState, {date:today(), start:n, end:Math.min(n + 60, START + NS*STEP), note:$("#s-note").value});
-    renderSheet(); savePing(); return;
-  }
-  if (t.closest("[data-save-ping]")) savePing();
-});
-$("#sheetIn").addEventListener("change", e => {
-  if (e.target.id === "s-start"){
-    sheetState.start = +e.target.value; sheetState.note = $("#s-note").value;
-    if (+$("#s-end").value <= sheetState.start) sheetState.end = sheetState.start + 60; else sheetState.end = +$("#s-end").value;
-    sheetState.end = Math.min(sheetState.end, START + NS*STEP);
-    renderSheet();
-  }
+  if (t.closest("[data-go-me]")){ closeSheet(); setTab("me"); startEdit(); return; }
+  if (t.closest("[data-ping-here]")){ const park = st.park; st.mode = "ping"; openSheet({park, date:S.day}); return; }
+  if (t.closest("[data-save-ping]")){ savePing(); return; }
+  keepNote();
+  const sp = t.closest("[data-sp]"); if (sp){ st.park = sp.dataset.sp; st.allParks = false; renderSheet(); return; }
+  if (t.closest("[data-allparks]")){ st.allParks = true; renderSheet(); return; }
+  const w = t.closest("[data-when]"); if (w && !w.disabled){ st.when = w.dataset.when; if (st.when === "day" && st.date <= today()) st.date = dateKey(addDays(new Date(), 1)); if (st.when === "later" && !laterSlots().includes(st.start)) st.start = laterSlots()[0]; renderSheet(); return; }
+  const sd = t.closest("[data-sd]"); if (sd){ st.date = sd.dataset.sd; renderSheet(); return; }
+  const tm = t.closest("[data-st]"); if (tm){ st.start = +tm.dataset.st; renderSheet(); return; }
+  const du = t.closest("[data-dur]"); if (du){ st.dur = +du.dataset.dur; renderSheet(); return; }
+  if (t.closest("[data-shownote]")){ st.showNote = true; renderSheet(); $("#s-note")?.focus(); }
 });
 
 /* refresh "there now" and today's date every minute */
