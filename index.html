@@ -34,6 +34,7 @@
   --park:#2F6B45; --on-park:#FFFFFF; --park-soft:#D6E8D9;
   --water:#BFD7E3; --land:#F2F4EF; --street:#FFFFFF; --street-major:#FFFFFF; --street-case:#CBD3C8; --bldg:#DFE4DB;
   --ball:#D4EC3F; --on-ball:#1E2A0A; --live:#C2412D;
+  --plan:#E2A11B; --on-plan:#2A1C00; --here:#1E9A50; --on-here:#FFFFFF; --grass:#D6E8D9;
   --shadow:0 1px 2px rgba(23,37,29,.08),0 6px 18px rgba(23,37,29,.08);
   --f-display:"Bricolage Grotesque","Arial Rounded MT Bold",system-ui,sans-serif;
   --f-body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
@@ -43,12 +44,14 @@
   --park:#74C38B; --on-park:#0F1813; --park-soft:#21402B;
   --water:#132A36; --land:#18231C; --street:#2C3B31; --street-major:#3A4C40; --street-case:#101812; --bldg:#202D24;
   --ball:#D4EC3F; --on-ball:#1E2A0A; --live:#EE7D63;
+  --plan:#F2B940; --on-plan:#2A1C00; --here:#4CC57A; --on-here:#0F1813; --grass:#21402B;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.25); color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0F1813; --surface:#17231B; --ink:#E4EEE5; --muted:#93A597; --line:#2A3A2F;
   --park:#74C38B; --on-park:#0F1813; --park-soft:#21402B;
   --water:#132A36; --land:#18231C; --street:#2C3B31; --street-major:#3A4C40; --street-case:#101812; --bldg:#202D24;
   --ball:#D4EC3F; --on-ball:#1E2A0A; --live:#EE7D63;
+  --plan:#F2B940; --on-plan:#2A1C00; --here:#4CC57A; --on-here:#0F1813; --grass:#21402B;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.25); color-scheme:dark}
 
 html,body{background:var(--bg)}
@@ -96,7 +99,7 @@ button{cursor:pointer}
 #map{display:block;width:100%;height:auto;max-width:100%;touch-action:manipulation}
 #map .water{fill:var(--water)}
 #map .land{fill:var(--land)}
-#map .grass{fill:var(--park-soft)}
+#map .grass{fill:var(--grass)}
 #map .bldg{fill:var(--bldg)}
 #map .road{fill:none;stroke-linecap:round;stroke-linejoin:round}
 #map .ped{stroke:var(--street);stroke-width:1.3;stroke-dasharray:1.5 2}
@@ -109,15 +112,18 @@ button{cursor:pointer}
 #map .pin.home .body{stroke:var(--ball);stroke-width:3}
 #map .pin .homelbl{fill:var(--park);font:800 7.5px var(--f-body);letter-spacing:.1em;text-anchor:middle;paint-order:stroke;stroke:var(--land);stroke-width:3px}
 #map .pin{cursor:pointer}
-#map .pin .halo{fill:var(--park);opacity:.18}
-#map .pin .body{fill:var(--park);stroke:var(--surface);stroke-width:2.5}
+#map .pin .halo{fill:var(--plan);opacity:.2}
+#map .pin.here .halo{fill:var(--here)}
+#map .pin .body{fill:var(--plan);stroke:var(--surface);stroke-width:2.5}
+#map .pin.here .body{fill:var(--here)}
 #map .pin.empty .body{fill:var(--surface);stroke:var(--park);stroke-width:2}
-#map .pin .count{fill:var(--on-park);font:800 12px var(--f-display);text-anchor:middle;dominant-baseline:central}
+#map .pin.here .count{fill:var(--on-here)}
+#map .pin .count{fill:var(--on-plan);font:800 12px var(--f-display);text-anchor:middle;dominant-baseline:central}
 #map .pin .name{fill:var(--ink);font:700 9px var(--f-body);text-anchor:middle;paint-order:stroke;stroke:var(--land);stroke-width:3px;stroke-linejoin:round}
 #map .pin .reg{fill:none;stroke:var(--park);stroke-width:1.5;stroke-dasharray:3 3}
-#map .pin.sel .body{fill:var(--ball);stroke:var(--ink)}
-#map .pin.sel .count{fill:var(--on-ball)}
-#map .pin .livering{fill:none;stroke:var(--live);stroke-width:2}
+#map .pin.sel .body{stroke:var(--ink);stroke-width:3}
+#map .pin.empty.sel .body{fill:var(--ball)}
+#map .pin .livering{fill:none;stroke:var(--here);stroke-width:2}
 @media (prefers-reduced-motion:no-preference){#map .pin .livering{animation:ping 2s ease-out infinite;transform-box:fill-box;transform-origin:center}}
 @keyframes ping{from{opacity:.9;transform:scale(1)}to{opacity:0;transform:scale(1.8)}}
 .maplegend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted);margin-top:-6px}
@@ -138,7 +144,30 @@ button{cursor:pointer}
 .parkrow{width:100%;background:none;border:0;text-align:left;padding:9px 0}
 .bar{height:6px;border-radius:3px;background:var(--park-soft);overflow:hidden;margin-top:5px}
 .bar span{display:block;height:100%;background:var(--park)}
-.livetag{color:var(--live);font-weight:700;font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.livetag{display:inline-block;margin-top:2px;border-radius:999px;padding:1px 7px;font-weight:700;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;background:var(--here);color:var(--on-here)}
+.livetag.plan{background:var(--plan);color:var(--on-plan)}
+.livetag.past{background:transparent;color:var(--muted);border:1px solid var(--line)}
+.av.ph{background-size:cover;background-position:center;color:transparent}
+button.av{border:0;padding:0;cursor:pointer}
+.pics{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px}
+.pic{position:relative;aspect-ratio:1;border-radius:12px;overflow:hidden;background:var(--bg)}
+.pic img{width:100%;height:100%;object-fit:cover;display:block}
+.pic .x,.pic .star{position:absolute;top:4px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(10,18,13,.6);color:#fff;font-size:14px;line-height:26px;padding:0}
+.pic .x{right:4px}.pic .star{left:4px}
+.pic .prof{position:absolute;left:4px;bottom:4px;font-size:10px;font-weight:700;background:var(--park);color:var(--on-park);border-radius:999px;padding:1px 7px}
+.pic.add{border:1.5px dashed var(--line);background:transparent;display:grid;place-items:center;color:var(--muted);font-size:28px;cursor:pointer}
+.pv{position:fixed;inset:0;z-index:65;background:rgba(5,9,7,.94);display:flex;flex-direction:column;padding:calc(10px + env(safe-area-inset-top,0px)) 0 calc(14px + env(safe-area-inset-bottom,0px))}
+.pv .hd{display:flex;align-items:center;gap:10px;color:#fff;padding:0 16px 10px}
+.pv .hd b{flex:1;font:800 18px var(--f-display)}
+.pv .hd button{background:rgba(255,255,255,.14);color:#fff;border:0;border-radius:999px;padding:7px 14px;font-weight:700}
+.pv .strip{flex:1;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
+.pv .strip::-webkit-scrollbar{display:none}
+.pv .strip div{flex:none;width:100%;scroll-snap-align:center;display:grid;place-items:center;padding:0 12px}
+.pv .strip img{max-width:100%;max-height:100%;border-radius:12px;object-fit:contain}
+.pv .ct{color:#fff;opacity:.7;text-align:center;font-size:13px;padding-top:8px}
+.swatches{display:flex;flex-wrap:wrap;gap:10px}
+.swatches button{width:40px;height:40px;border-radius:50%;border:3px solid var(--surface);box-shadow:0 0 0 1px var(--line);padding:0}
+.swatches button.on{box-shadow:0 0 0 2px var(--ink)}
 .note{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
 
 /* avatars */
@@ -283,7 +312,6 @@ a.linkbtn{text-decoration:none}
   <!-- MAP -->
   <section class="view" id="v-map" aria-label="Map">
     <p class="summary" id="summary">Loading the pack…</p>
-    <div class="exbar" id="exbar" hidden><span id="exText">Showing example dogs so you can see how it works. They aren't real.</span><button class="linkbtn" id="exHide">Hide</button></div>
     <div class="chips" id="dayChips" role="tablist" aria-label="Day"></div>
     <div class="panel" id="friendsOut" hidden></div>
     <div class="chips" id="whoChips" hidden></div>
@@ -308,7 +336,7 @@ a.linkbtn{text-decoration:none}
       <button class="locbtn" id="locBtn" aria-label="Show where I am"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
     </div>
     <div class="here" id="hereBar" hidden></div>
-    <div class="maplegend"><span><i style="background:var(--park)"></i>pinged</span><span><i style="background:var(--live)"></i>there now</span><span><i style="border:1.5px dashed var(--park)"></i>regulars (pick a time)</span><span style="margin-left:auto">Map data © OpenStreetMap contributors</span></div>
+    <div class="maplegend"><span><i style="background:var(--plan)"></i>planning to go</span><span><i style="background:var(--here)"></i>there now</span><span><i style="border:1.5px dashed var(--park)"></i>regulars (pick a time)</span><span style="margin-left:auto">Map data © OpenStreetMap contributors</span></div>
     <div class="timebar">
       <button class="chip on" id="allDay">All day</button>
       <input type="range" id="timeSlider" min="0" max="31" value="22" aria-label="Time of day">
@@ -371,6 +399,11 @@ a.linkbtn{text-decoration:none}
     </div>
     <div class="panel" id="installCard" hidden></div>
     <form class="panel form" id="dogForm" autocomplete="off">
+      <div class="field" id="picsField" hidden><span class="label">Photos of your pup</span>
+        <div class="pics" id="myPics"></div>
+        <p class="small muted" id="picsNote">Add up to 6. The starred one is the profile picture everyone sees.</p>
+        <input type="file" id="picIn" accept="image/*" multiple hidden>
+      </div>
       <div class="two">
         <div class="field"><label for="f-name">Dog's name</label><input class="input" id="f-name" maxlength="24" required placeholder="Moose"></div>
         <div class="field"><label for="f-breed">Breed</label><input class="input" id="f-breed" maxlength="32" placeholder="Lab mix"></div>
@@ -393,6 +426,7 @@ a.linkbtn{text-decoration:none}
       <div class="panel-head"><h3>Your upcoming pings</h3></div>
       <div class="rows" id="myPings"></div>
     </div>
+    <div class="panel" id="lookCard"></div>
   </section>
 </div>
 
@@ -409,6 +443,7 @@ a.linkbtn{text-decoration:none}
 <div class="scrim" id="scrim" hidden></div>
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" hidden><div class="in" id="sheetIn"></div></div>
 <div class="toast" id="toast" role="status" hidden></div>
+<div class="pv" id="pv" role="dialog" aria-modal="true" aria-label="Photos" hidden></div>
 <div class="welcome" id="welcome" role="dialog" aria-modal="true" aria-labelledby="welcomeTitle" hidden><div class="in" id="welcomeIn"></div></div>
 
 <script>
@@ -510,36 +545,13 @@ const dayLabel = k => { const t = today(); if (k === t) return "Today"; if (k ==
 const uidGen = () => Math.random().toString(36).slice(2, 10);
 const emptyAvail = () => Array.from({length:7}, () => "0".repeat(NS));
 const blankDoc = () => ({dog:null, ownerName:"", favParks:[], avail:emptyAvail(), pings:[], friends:[]});
+const safePhoto = v => typeof v === "string" && v.length < 60000 && /^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/.test(v) ? v : "";
 
 function av(dog, cls=""){
   const c = COAT[dog?.doc?.dog?.coat] || COATS[0];
   const ini = (dog?.doc?.dog?.name || "?").trim().charAt(0).toUpperCase();
-  return `<span class="av ${cls} ${dog?.example ? "ex" : ""} ${dog && !dog.mine && isFriend(dog.uid) ? "fr" : ""}" style="--c:${c.c};--t:${c.t}" aria-hidden="true">${esc(ini)}</span>`;
-}
-
-/* ---------- example pack (local only, never saved) ---------- */
-function availFrom(spec){
-  const a = emptyAvail().map(s => s.split(""));
-  for (const [days, from, to] of spec) for (const d of days)
-    for (let s = 0; s < NS; s++){ const m = slotMin(s); if (m >= from*60 && m < to*60) a[d][s] = "1"; }
-  return a.map(r => r.join(""));
-}
-function examples(){
-  const t = today(), tm = dateKey(addDays(new Date(), 1));
-  const wk = [0,1,2,3,4];
-  const mk = (id, dog, owner, fav, spec, pings) => ({uid:"ex-"+id, example:true, doc:{dog, ownerName:owner, favParks:fav, avail:availFrom(spec), pings:pings.map(p => ({id:uidGen(), ...p}))}});
-  return [
-    mk("biscuit",{name:"Biscuit",breed:"Corgi",size:"S",social:"party",coat:"red",vibe:"Herds the bigger dogs. Will steal your ball."},"Example",["rowes","common"],
-      [[wk,7,8.5],[wk,17,19],[[5,6],9,12]],[{date:t,park:"rowes",start:17*60,end:18*60+30}]),
-    mk("luna",{name:"Luna",breed:"Black Lab",size:"L",social:"friendly",coat:"black",vibe:"Swims if you let her. Gentle with puppies."},"Example",["langone","columbus"],
-      [[wk,6.5,8],[wk,17.5,19],[[5],8,11]],[{date:t,park:"langone",start:7*60,end:8*60},{date:tm,park:"rowes",start:17*60+30,end:19*60}]),
-    mk("pepper",{name:"Pepper",breed:"French Bulldog",size:"S",social:"learning",coat:"fawn",vibe:"Nervous at first. Slow intros please."},"Example",["pos","longwharf"],
-      [[wk,12,13],[wk,18,19],[[6],10,12]],[{date:t,park:"pos",start:12*60,end:13*60},{date:t,park:"rowes",start:18*60,end:19*60}]),
-    mk("otis",{name:"Otis",breed:"Goldendoodle",size:"L",social:"party",coat:"golden",vibe:"Never met a dog he didn't like."},"Example",["columbus","rowes","longwharf"],
-      [[wk,16.5,18.5],[[6],10,14],[[5],9,11]],[{date:t,park:"columbus",start:16*60+30,end:18*60}]),
-    mk("mabel",{name:"Mabel",breed:"Beagle",size:"M",social:"friendly",coat:"choc",vibe:"Nose first, ears second, listening third."},"Example",["ruff","northmeadow"],
-      [[wk,7,8],[wk,16,18],[[5],9,11]],[{date:t,park:"rowes",start:16*60+30,end:17*60+30},{date:tm,park:"ruff",start:7*60,end:8*60}]),
-  ];
+  const ph = safePhoto(dog?.doc?.photo);
+  return `<span class="av ${cls} ${ph ? "ph" : ""} ${dog && !dog.mine && isFriend(dog.uid) ? "fr" : ""}" style="--c:${c.c};--t:${c.t}${ph ? `;background-image:url('${ph}')` : ""}" aria-hidden="true">${esc(ini)}</span>`;
 }
 
 /* ---------- state ---------- */
@@ -558,8 +570,8 @@ const S = {
   planMode:"mine",
   excluded:new Set(ls.get("pp.excluded", [])),
   pick:null,               // [day, slot] in group view
-  hideEx:ls.get("pp.hideEx", false),
-  examples:examples(),
+  pics:[],                 // my photos [{f, a}] (full + avatar)
+  picCache:{},             // uid -> [full...]
   who:ls.get("pp.who", "all"),         // map: all | friends
   packFilter:"all",
   alerts:ls.get("pp.alerts", false),
@@ -573,12 +585,10 @@ function realDogs(){
   for (const [uid, doc] of Object.entries(S.docs)) if (uid !== S.uid && doc?.dog?.name) out.push({uid, doc});
   return out;
 }
-function showingExamples(){ return !S.hideEx && realDogs().length < 3; }
 function allDogs(){
   const list = [];
   if (S.my.dog?.name) list.push({uid:S.uid, doc:S.my, mine:true});
   list.push(...realDogs());
-  if (showingExamples()) list.push(...S.examples);
   return list;
 }
 const ownerName = d => d.mine ? "You" : (S.names[d.uid] || d.doc.ownerName || (d.example ? "Example" : "a neighbor"));
@@ -592,6 +602,7 @@ function setStatus(text, live){
 function onDocs(list){
   const next = {};
   for (const {id, data} of list) next[id] = data;
+  for (const [id, d] of Object.entries(next)) if (id !== S.uid && S.docs[id] && (S.docs[id].photo !== d.photo || S.docs[id].photoCount !== d.photoCount)) delete S.picCache[id];
   S.docs = next;
   if (next[S.uid] && !S.dirty && !S.loadedMine){ S.my = normalize(next[S.uid]); S.loadedMine = true; fillForm(); }
   else if (!next[S.uid]) S.loadedMine = true;
@@ -608,6 +619,7 @@ function normalize(d){
   x.pings = Array.isArray(x.pings) ? x.pings : [];
   x.favParks = Array.isArray(x.favParks) ? x.favParks : [];
   x.friends = Array.isArray(x.friends) ? x.friends : [];
+  if (!safePhoto(x.photo)){ delete x.photo; delete x.photoCount; }
   return x;
 }
 async function resolveNames(){
@@ -635,8 +647,10 @@ async function connect(){
       S.mode = "firebase"; S.uid = cred.user.uid;
       const coll = firebase.firestore().collection("owners");
       backend = { save: body => coll.doc(S.uid).set(body) };
+      photosColl = firebase.firestore().collection("photos");
       coll.onSnapshot(snap => onDocs(snap.docs.map(d => ({id:d.id, data:d.data()}))),
                       () => setStatus("Can't reach the pack right now", false));
+      loadMyPics();
       return;
     } catch (e) { console.warn("Firebase unavailable, using this device only", e); }
   }
@@ -697,6 +711,16 @@ function pingsOn(dk){
 }
 const covers = (p, m) => p.start <= m && m < p.end;
 const isLive = p => p.date === today() && covers(p, nowMin());
+const isPast = p => p.date < today() || (p.date === today() && p.end <= nowMin());
+const statusTag = p => isLive(p) ? `<div class="livetag">There now</div>` : isPast(p) ? `<div class="livetag past">Was there</div>` : `<div class="livetag plan">Planning to go</div>`;
+/* one place at a time: a new ping replaces any of mine that overlaps it */
+function addMyPing(np){
+  const gone = S.my.pings.filter(p => p.date === np.date && p.start < np.end && np.start < p.end);
+  S.my.pings = S.my.pings.filter(p => !gone.includes(p));
+  S.my.pings.push(np);
+  return gone;
+}
+const replacedNote = gone => gone.length ? ` Replaced your ${gone.map(p => PARK[p.park]?.short || "other").join(", ")} ping, since you can only be one place at a time.` : "";
 function regularsAt(parkId, dk, m, exclude){
   const d = wday(fromKey(dk)), s = Math.floor((m - START)/STEP);
   if (s < 0 || s >= NS) return [];
@@ -800,7 +824,7 @@ function renderFriendsOut(){
   if (!list.length) return;
   el.innerHTML = `<h3>Friends out today</h3><div class="rows">${list.slice(0, 6).map(({p, d}) => `<button class="row friendrow" data-park="${p.park}">${av(d, "sm")}
       <div class="grow"><b>${esc(d.doc.dog.name)}</b> <span class="small muted">at ${esc(PARK[p.park].short)}</span></div>
-      <div style="text-align:right"><div class="t">${range(p.start, p.end)}</div>${isLive(p) ? `<div class="livetag">There now</div>` : ""}</div></button>`).join("")}</div>`;
+      <div style="text-align:right"><div class="t">${range(p.start, p.end)}</div>${statusTag(p)}</div></button>`).join("")}</div>`;
 }
 
 /* ---------- LOCATION (stays on this phone; only the park you check in to is shared) ---------- */
@@ -856,10 +880,10 @@ function checkIn(park){
   if (!S.my.dog?.name){ openSheet({park}); return; }
   const start = Math.max(START, Math.floor(nowMin() / 30) * 30), end = Math.min(start + 60, START + NS * STEP);
   if (end <= start || nowMin() >= START + NS * STEP){ toast("Check-ins close at 10 PM."); return; }
-  S.my.pings.push({id:uidGen(), date:today(), park, start, end});
+  const gone = addMyPing({id:uidGen(), date:today(), park, start, end});
   queueSave(0);
   S.day = today(); S.park = park; S.time = null;
-  toast(`Checked in at ${PARK[park].short} until ${fmt(end)}.`);
+  toast(`Checked in at ${PARK[park].short} until ${fmt(end)}.${replacedNote(gone)}`);
   renderAll();
 }
 
@@ -894,18 +918,16 @@ function renderMap(){
     ? `<b>${dogs.size} ${dogs.size === 1 ? "dog" : "dogs"}</b> heading out ${esc(when)} across <b>${parks.size} ${parks.size === 1 ? "park" : "parks"}</b>.` +
       (peak && peak.c > 1 ? ` Busiest: ${esc(peak.pk.short)} around ${fmt(peak.m)} (${peak.c} dogs).` : "")
     : `No one has pinged a park ${esc(when)} yet. Be the first: tap <b>Ping a park</b>.`;
-  // example bar
-  $("#exbar").hidden = !showingExamples();
   // pins
   const g = $("#pins"); let h = "";
   const order = [...PARKS].sort((a,b) => (S.park === a.id) - (S.park === b.id));
   for (const pk of order){
     const here = vis.filter(p => p.park === pk.id);
     const n = new Set(here.map(p => p.dog.uid)).size;
-    const live = all.some(p => p.park === pk.id && isLive(p));
+    const live = vis.some(p => p.park === pk.id && isLive(p));
     const regs = S.time == null ? [] : regularsAt(pk.id, S.day, S.time, new Set(here.map(p => p.dog.uid)));
     const r = n ? 11 + Math.min(n, 6)*1.6 : 6;
-    h += `<g class="pin ${n ? "" : "empty"} ${pk.home ? "home" : ""} ${S.park === pk.id ? "sel" : ""}" data-park="${pk.id}" transform="translate(${pk.x},${pk.y})" tabindex="0" role="button" aria-label="${esc(pk.name)}: ${n} dogs">`;
+    h += `<g class="pin ${n ? "" : "empty"} ${live ? "here" : ""} ${pk.home ? "home" : ""} ${S.park === pk.id ? "sel" : ""}" data-park="${pk.id}" transform="translate(${pk.x},${pk.y})" tabindex="0" role="button" aria-label="${esc(pk.name)}: ${n} dogs">`;
     if (n) h += `<circle class="halo" r="${r + 7}"/>`;
     if (regs.length) h += `<circle class="reg" r="${r + 5}"/>`;
     if (live) h += `<circle class="livering" r="${r + 2}"/>`;
@@ -944,7 +966,7 @@ function renderParkPanel(all, vis){
     <div class="rows">${shown.length ? shown.map(p => `<div class="row">${av(p.dog)}
         <div class="grow"><b>${esc(p.dog.doc.dog.name)}</b> <span class="muted small">with ${esc(ownerName(p.dog))}</span>
           ${p.note ? `<div class="note">${esc(p.note)}</div>` : ""}</div>
-        <div style="text-align:right"><div class="t">${range(p.start, p.end)}</div>${isLive(p) ? `<div class="livetag">There now</div>` : ""}</div></div>`).join("")
+        <div style="text-align:right"><div class="t">${range(p.start, p.end)}</div>${statusTag(p)}</div></div>`).join("")
       : `<div class="empty">No pings here ${S.time == null ? dayLabel(S.day).toLowerCase() : "at " + fmt(S.time)}.</div>`}</div>
     ${regs.length ? `<div><div class="label" style="margin-bottom:6px">Usually free around now</div><div style="display:flex;align-items:center;gap:8px"><span class="stack">${regs.slice(0,6).map(d => av(d,"sm")).join("")}</span><span class="small muted">${esc(regs.map(d => d.doc.dog.name).join(", "))} list this park and this time on their week.</span></div></div>` : ""}
     <button class="btn ball" data-ping-park="${pk.id}">Ping ${esc(pk.short)}</button>`;
@@ -1080,8 +1102,10 @@ function renderPack(){
   $("#packList").innerHTML = dogs.length ? dogs.map(d => {
     const dg = d.doc.dog, nxt = (d.doc.pings || []).filter(p => p.date > t || (p.date === t && p.end > nowMin())).sort((a,b) => a.date.localeCompare(b.date) || a.start - b.start)[0];
     const fr = !d.mine && isFriend(d.uid);
-    return `<article class="dogcard"><div class="hd">${av(d, "lg")}<div style="min-width:0;flex:1"><h3>${esc(dg.name)}</h3>
-        <div class="small muted">${esc(dg.breed || "Good dog")} · with ${esc(ownerName(d))}</div></div>
+    const np = d.mine ? S.pics.length : (+d.doc.photoCount || 0);
+    const avh = np ? av(d, "lg").replace(/^<span/, `<button data-pics="${esc(d.uid)}" aria-label="See photos of ${esc(dg.name)}"`).replace(/<\/span>$/, "</button>").replace(' aria-hidden="true"', "") : av(d, "lg");
+    return `<article class="dogcard"><div class="hd">${avh}<div style="min-width:0;flex:1"><h3>${esc(dg.name)}</h3>
+        <div class="small muted">${esc(dg.breed || "Good dog")} · with ${esc(ownerName(d))}${np ? ` · <button class="linkbtn" data-pics="${esc(d.uid)}">${np} ${np === 1 ? "photo" : "photos"}</button>` : ""}</div></div>
         ${d.mine || d.example || S.mode === "local" ? "" : `<button class="btn sm ${fr ? "ghost" : ""}" data-friend="${esc(d.uid)}" aria-pressed="${fr}">${fr ? "Friends ✓" : "Add friend"}</button>`}</div>
       <div class="tags"><span class="tag">${SIZE[dg.size] || "Medium"}</span><span class="tag ${dg.social === "learning" ? "learn" : ""}">${SOCIAL[dg.social] || "Friendly"}</span>${d.example ? `<span class="tag ex">Example</span>` : ""}${d.mine ? `<span class="tag">You</span>` : ""}</div>
       ${dg.vibe ? `<p class="note">${esc(dg.vibe)}</p>` : ""}
@@ -1141,11 +1165,13 @@ function renderMe(){
     : "Saved on this phone only. Other owners will see you once Park Pack is connected to its shared pack.";
   const t = today(), mine = S.my.pings.filter(p => p.date >= t).sort((a,b) => a.date.localeCompare(b.date) || a.start - b.start);
   $("#myPings").innerHTML = mine.length ? mine.map(p => `<div class="row"><div class="grow"><b>${esc(PARK[p.park]?.name || p.park)}</b>
-      <div class="small muted num">${dayLabel(p.date)} · ${range(p.start, p.end)}</div>${p.note ? `<div class="note">${esc(p.note)}</div>` : ""}</div>
+      <div class="small muted num">${dayLabel(p.date)} · ${range(p.start, p.end)}</div>${statusTag(p)}${p.note ? `<div class="note">${esc(p.note)}</div>` : ""}</div>
       ${S.readOnly ? "" : `<button class="iconbtn" data-unping="${esc(p.id)}">Remove</button>`}</div>`).join("")
     : `<div class="empty">No pings yet. Tap <b>Ping a park</b> when you're heading out.</div>`;
   renderInstall();
   renderFriendsCard();
+  renderPics();
+  renderLook();
 }
 
 /* ---------- install (PWA) ---------- */
@@ -1241,13 +1267,125 @@ function savePing(){
   const st = sheetState;
   st.start = +$("#s-start").value; st.end = +$("#s-end").value; st.note = $("#s-note").value.trim();
   if (st.end <= st.start){ toast("Pick an end time after the start."); return; }
-  S.my.pings.push({id:uidGen(), date:st.date, park:st.park, start:st.start, end:st.end, ...(st.note ? {note:st.note} : {})});
+  const gone = addMyPing({id:uidGen(), date:st.date, park:st.park, start:st.start, end:st.end, ...(st.note ? {note:st.note} : {})});
   queueSave(0);
   closeSheet();
   S.day = st.date; S.park = st.park; S.time = null;
   setTab("map");
-  toast(`Pinged ${PARK[st.park].short}, ${dayLabel(st.date).toLowerCase() === "today" ? "today" : dayLabel(st.date)} ${range(st.start, st.end)}.`);
+  toast(`Pinged ${PARK[st.park].short}, ${dayLabel(st.date).toLowerCase() === "today" ? "today" : dayLabel(st.date)} ${range(st.start, st.end)}.${replacedNote(gone)}`);
 }
+
+/* ---------- PHOTOS (gallery in photos/{uid}; small avatar copy on the owner doc) ---------- */
+let photosColl = null;
+async function decodeImg(file){
+  if (window.createImageBitmap){ try { return await createImageBitmap(file); } catch {} }
+  return await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(file); });
+}
+function toJpeg(img, max, square, limit){
+  const w0 = img.width, h0 = img.height;
+  let sx = 0, sy = 0, sw = w0, sh = h0;
+  if (square){ const m = Math.min(w0, h0); sx = (w0 - m)/2; sy = (h0 - m)/2; sw = sh = m; }
+  for (let size = max, q = .8; ; size = Math.round(size*.82), q = Math.max(.55, q - .06)){
+    const k = Math.min(1, size / Math.max(sw, sh)), c = document.createElement("canvas");
+    c.width = Math.round(sw*k); c.height = Math.round(sh*k);
+    c.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
+    const url = c.toDataURL("image/jpeg", q);
+    if (url.length <= limit || size < 120) return url;
+  }
+}
+async function loadMyPics(){
+  if (!photosColl) return;
+  try { const snap = await photosColl.doc(S.uid).get(); const pics = snap.exists ? snap.data().pics : [];
+    S.pics = (Array.isArray(pics) ? pics : []).filter(x => safePhoto(x?.f) && safePhoto(x?.a)); S.picCache[S.uid] = S.pics.map(x => x.f); renderAll();
+  } catch (e){ console.warn(e); }
+}
+let picChain = Promise.resolve();
+function savePics(){
+  S.picCache[S.uid] = S.pics.map(x => x.f);
+  S.my.photo = S.pics[0]?.a || ""; S.my.photoCount = S.pics.length;
+  if (!S.my.photo){ delete S.my.photo; }
+  picChain = picChain.then(() => photosColl.doc(S.uid).set({pics:S.pics, updatedAt:new Date().toISOString()}))
+    .then(() => queueSave(0))
+    .catch(e => { console.warn(e); toast("Couldn't save that photo. Try a smaller one."); });
+  renderAll();
+}
+function renderPics(){
+  const f = $("#picsField"); f.hidden = S.mode !== "firebase" || S.readOnly;
+  if (f.hidden) return;
+  $("#myPics").innerHTML = S.pics.map((x, i) => `<div class="pic"><img src="${x.f}" alt="Photo ${i + 1}" data-pics="${esc(S.uid)}" data-i="${i}">
+      ${i ? `<button type="button" class="star" data-star="${i}" aria-label="Make this the profile picture">☆</button>` : `<span class="prof">Profile</span>`}
+      <button type="button" class="x" data-unpic="${i}" aria-label="Remove photo">×</button></div>`).join("")
+    + (S.pics.length < 6 ? `<button type="button" class="pic add" id="addPic" aria-label="Add photos">+</button>` : "");
+}
+$("#picsField").addEventListener("click", e => {
+  if (e.target.closest("#addPic")){ $("#picIn").click(); return; }
+  const x = e.target.closest("[data-unpic]"); if (x){ S.pics.splice(+x.dataset.unpic, 1); savePics(); return; }
+  const st = e.target.closest("[data-star]"); if (st){ const [m] = S.pics.splice(+st.dataset.star, 1); S.pics.unshift(m); savePics(); toast("Profile picture updated."); return; }
+  const im = e.target.closest("img[data-i]"); if (im) openPhotos(S.uid, +im.dataset.i);
+});
+$("#picIn").addEventListener("change", async e => {
+  const files = [...e.target.files].slice(0, 6 - S.pics.length); e.target.value = "";
+  if (!files.length) return;
+  toast(files.length > 1 ? "Adding photos…" : "Adding photo…");
+  for (const file of files){
+    try { const img = await decodeImg(file); S.pics.push({f:toJpeg(img, 1000, false, 115000), a:toJpeg(img, 200, true, 30000)}); }
+    catch (err){ console.warn(err); toast("That file didn't open as a photo."); }
+  }
+  savePics();
+});
+async function openPhotos(uid, start = 0){
+  const d = uid === S.uid ? {uid, doc:S.my, mine:true} : {uid, doc:S.docs[uid]};
+  if (!d.doc?.dog?.name && uid !== S.uid) return;
+  const pv = $("#pv"), name = d.doc.dog?.name || "Your dog";
+  pv.innerHTML = `<div class="hd"><b>${esc(name)}</b><button data-pvclose>Close</button></div><div class="strip" id="pvStrip"><div><span class="small" style="color:#fff">Loading…</span></div></div><div class="ct" id="pvCt"></div>`;
+  pv.hidden = false; document.body.style.overflow = "hidden";
+  let pics = S.picCache[uid];
+  if (!pics && photosColl){ try { const snap = await photosColl.doc(uid).get(); pics = (snap.exists ? snap.data().pics || [] : []).map(x => safePhoto(x?.f)).filter(Boolean); S.picCache[uid] = pics; } catch (e){ console.warn(e); pics = []; } }
+  pics = pics || [];
+  if (pv.hidden) return;
+  $("#pvStrip").innerHTML = pics.length ? pics.map((u, i) => `<div><img src="${u}" alt="${esc(name)}, photo ${i + 1}"></div>`).join("") : `<div><span style="color:#fff">No photos yet.</span></div>`;
+  const strip = $("#pvStrip"), ct = $("#pvCt");
+  const upd = () => { ct.textContent = pics.length > 1 ? `${Math.round(strip.scrollLeft / strip.clientWidth) + 1} of ${pics.length} · swipe for more` : ""; };
+  strip.onscroll = upd;
+  requestAnimationFrame(() => { strip.scrollLeft = strip.clientWidth * Math.min(start, pics.length - 1); upd(); });
+}
+function closePhotos(){ $("#pv").hidden = true; $("#pv").innerHTML = ""; document.body.style.overflow = ""; }
+$("#pv").addEventListener("click", e => { if (e.target.closest("[data-pvclose]") || e.target.classList.contains("strip") || e.target.parentElement?.classList.contains("strip")) closePhotos(); });
+addEventListener("keydown", e => { if (e.key === "Escape" && !$("#pv").hidden) closePhotos(); });
+
+/* ---------- LOOK (this phone only) ---------- */
+const ACCENTS = {
+  green: {n:"Park green",  l:["#2F6B45","#D6E8D9"], d:["#74C38B","#21402B"]},
+  blue:  {n:"Harbor blue", l:["#1F5F99","#D6E4F2"], d:["#7DB3E8","#1C3247"]},
+  sunset:{n:"Sunset",      l:["#B5501F","#F5DFD2"], d:["#F0956A","#43271A"]},
+  berry: {n:"Berry",       l:["#B0305A","#F4D9E2"], d:["#F08AAB","#45212E"]},
+  plum:  {n:"Plum",        l:["#6B3FA0","#E5DCF2"], d:["#B898E8","#2E2442"]},
+  slate: {n:"Slate",       l:["#3F5160","#DCE2E7"], d:["#A3B5C4","#26313A"]},
+};
+const look = {theme:"auto", accent:"green", start:"map", ...ls.get("pp.look", {})};
+const darkMQ = matchMedia("(prefers-color-scheme: dark)");
+function applyLook(){
+  const root = document.documentElement;
+  if (look.theme === "auto") delete root.dataset.theme; else root.dataset.theme = look.theme;
+  const dark = look.theme === "dark" || (look.theme === "auto" && darkMQ.matches);
+  const a = ACCENTS[look.accent];
+  if (!a || look.accent === "green"){ ["--park","--park-soft","--on-park"].forEach(v => root.style.removeProperty(v)); }
+  else { const [c, soft] = dark ? a.d : a.l; root.style.setProperty("--park", c); root.style.setProperty("--park-soft", soft); root.style.setProperty("--on-park", dark ? "#0F1813" : "#FFFFFF"); }
+  const meta = document.querySelector('meta[name="theme-color"]'); if (meta) meta.content = getComputedStyle(root).getPropertyValue("--park").trim() || "#2F6B45";
+}
+darkMQ.addEventListener?.("change", applyLook);
+function renderLook(){
+  const chip = (k, v, label) => `<button class="chip ${look[k] === v ? "on" : ""}" data-look="${k}" data-v="${v}">${label}</button>`;
+  $("#lookCard").innerHTML = `<div class="panel-head"><h3>Look &amp; feel</h3><span class="small muted">Just on this phone</span></div>
+    <div class="field"><span class="label">Appearance</span><div class="chips">${chip("theme","auto","Match phone")}${chip("theme","light","Light")}${chip("theme","dark","Dark")}</div></div>
+    <div class="field"><span class="label">Color</span><div class="swatches">${Object.entries(ACCENTS).map(([k, a]) => `<button class="${look.accent === k ? "on" : ""}" data-look="accent" data-v="${k}" style="background:${a.l[0]}" aria-label="${a.n}" title="${a.n}"></button>`).join("")}</div></div>
+    <div class="field"><span class="label">Open to</span><div class="chips">${chip("start","map","Map")}${chip("start","events","Events")}${chip("start","pack","Pack")}${chip("start","me","My dog")}</div></div>`;
+}
+$("#lookCard").addEventListener("click", e => {
+  const b = e.target.closest("[data-look]"); if (!b) return;
+  look[b.dataset.look] = b.dataset.v; ls.set("pp.look", look); applyLook(); renderLook();
+});
+applyLook();
 
 /* ---------- tabs + render ---------- */
 function setTab(t){
@@ -1272,7 +1410,6 @@ function renderAll(){
 /* ---------- events ---------- */
 document.querySelector(".tabs").addEventListener("click", e => { const b = e.target.closest(".tab"); if (b) setTab(b.dataset.tab); });
 $("#dayChips").addEventListener("click", e => { const b = e.target.closest("[data-day]"); if (b){ S.day = b.dataset.day; renderMap(); } });
-$("#exHide").addEventListener("click", () => { S.hideEx = true; ls.set("pp.hideEx", true); renderAll(); });
 $("#allDay").addEventListener("click", () => { S.time = S.time == null ? slotMin(+$("#timeSlider").value) : null; renderMap(); });
 $("#timeSlider").addEventListener("input", e => { S.time = slotMin(+e.target.value); renderMap(); });
 $("#pins").addEventListener("click", e => { const p = e.target.closest("[data-park]"); if (p){ S.park = S.park === p.dataset.park ? null : p.dataset.park; renderMap(); } });
@@ -1295,6 +1432,7 @@ $("#whoChips").addEventListener("click", e => { const b = e.target.closest("[dat
 $("#friendsOut").addEventListener("click", e => { const b = e.target.closest("[data-park]"); if (b){ S.day = today(); S.park = b.dataset.park; S.time = null; renderMap(); } });
 $("#v-pack").addEventListener("click", e => {
   const f = e.target.closest("[data-friend]"); if (f){ toggleFriend(f.dataset.friend); return; }
+  const pc = e.target.closest("[data-pics]"); if (pc){ openPhotos(pc.dataset.pics); return; }
   const pf = e.target.closest("[data-pf]"); if (pf){ S.packFilter = pf.dataset.pf; renderPack(); }
 });
 $("#friendsCard").addEventListener("click", e => {
@@ -1417,7 +1555,7 @@ $("#hoods").innerHTML = HOODS.map(([t, x, y]) => `<text class="hood" x="${x}" y=
 { const g = document.createElementNS("http://www.w3.org/2000/svg", "g"); g.id = "meLoc"; g.setAttribute("pointer-events", "none"); $("#map").appendChild(g); }
 if (ls.get("pp.loc", false) && navigator.permissions?.query)
   navigator.permissions.query({name:"geolocation"}).then(st => { if (st.state === "granted"){ geo.want = true; if (S.tab === "map") startLocate(false); } }).catch(() => {});
-renderAll();
+if (look.start && look.start !== "map" && !new URLSearchParams(location.search).has("friend")) setTab(look.start); else renderAll();
 connect();
 })();
 </script>

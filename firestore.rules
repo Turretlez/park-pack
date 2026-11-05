@@ -5,10 +5,19 @@ service cloud.firestore {
     match /owners/{uid} {
       allow read: if request.auth != null;
       allow create, update: if request.auth != null && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['dog', 'ownerName', 'favParks', 'avail', 'pings', 'friends', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['dog', 'ownerName', 'favParks', 'avail', 'pings', 'friends', 'photo', 'photoCount', 'updatedAt'])
         && (!('pings' in request.resource.data) || request.resource.data.pings.size() <= 60)
         && (!('avail' in request.resource.data) || request.resource.data.avail.size() == 7)
-        && (!('friends' in request.resource.data) || request.resource.data.friends.size() <= 200);
+        && (!('friends' in request.resource.data) || request.resource.data.friends.size() <= 200)
+        && (!('photo' in request.resource.data) || (request.resource.data.photo is string && request.resource.data.photo.size() < 40000));
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+    // Pup photo galleries, loaded only when someone opens them. Up to 6 per dog.
+    match /photos/{uid} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['pics', 'updatedAt'])
+        && request.resource.data.pics is list && request.resource.data.pics.size() <= 6;
       allow delete: if request.auth != null && request.auth.uid == uid;
     }
   }
