@@ -769,7 +769,7 @@ function toast(msg){ const t = $("#toast"); t.textContent = msg; t.hidden = fals
 /* ---------- pings ---------- */
 function pingsOn(dk){
   const out = [];
-  for (const d of mapDogs()) for (const p of oneAtATime(d.doc.pings)) if (p.date === dk && PARK[p.park]) out.push({...p, dog:d});
+  for (const d of mapDogs()) for (const p of oneAtATime(d.doc.pings)) if (p.date === dk && PARK[p.park] && !isPast(p)) out.push({...p, dog:d});
   return out.sort((a,b) => a.start - b.start);
 }
 const covers = (p, m) => p.start <= m && m < p.end;
@@ -789,6 +789,7 @@ const statusTag = p => isHere(p) ? `<div class="livetag">There now</div>` : isPa
 function leavePing(id){
   const p = S.my.pings.find(x => x.id === id); if (!p) return;
   const now = nowMin();
+  if (isLive(p) && PARK_LL[p.park] && geo.pos && distM(geo.pos, PARK_LL[p.park]) <= 300) geo.noAuto = p.park;
   if (isLive(p) && now - p.start >= 5){ p.end = now; delete p.here; toast(`Checked out of ${PARK[p.park]?.short || "the park"}.`); }
   else { S.my.pings = S.my.pings.filter(x => x.id !== id); toast(`Removed your ${PARK[p.park]?.short || ""} ping.`); }
   queueSave(0); renderAll(); if (!$("#sheet").hidden) renderSheet();
@@ -811,7 +812,27 @@ function presenceCheck(){
     }
     if (!p.here && m <= 150){ p.here = true; toast(`You made it to ${PARK[p.park].short}! Showing you as there now.`); changed = true; confetti(12); }
   }
+  if (!changed) changed = autoHere();
   if (changed){ queueSave(0); renderAll(); }
+}
+/* automatic check-in: stay at a park ~2 minutes and you show as there now; it keeps extending while you stay */
+function autoHere(){
+  const near = nearestPark(), now = nowMin(), last = START + NS*STEP;
+  const at = near && near.m <= 150 && (geo.acc || 0) < 150 ? near.pk.id : null;
+  if (geo.noAuto && at !== geo.noAuto) geo.noAuto = null;            // left the park you checked out of
+  if (!at || now < START || now >= last - 5){ geo.dwell = null; return false; }
+  if (!geo.dwell || geo.dwell.park !== at) geo.dwell = {park:at, t:Date.now()};
+  const cur = S.my.pings.find(p => isLive(p) && p.park === at);
+  if (cur){
+    if (cur.here && cur.end - now < 10 && cur.end < last){ cur.end = Math.min(last, cur.end + 30); return true; }
+    return false;
+  }
+  if (geo.noAuto === at || Date.now() - geo.dwell.t < 2*60*1000) return false;
+  const start = Math.floor(now/5)*5;
+  const gone = addMyPing({id:uidGen(), date:today(), park:at, start, end:Math.min(start + 60, last), here:true, auto:true});
+  toast(`You're at ${PARK[at].short}, so ${S.my.dog.name} is checked in.${replacedNote(gone)}`);
+  confetti(12);
+  return true;
 }
 /* one place at a time: a new ping replaces any of mine that overlaps it */
 function addMyPing(np){
@@ -1323,7 +1344,7 @@ function renderMe(){
   note.hidden = !(S.readOnly || S.mode === "local");
   note.textContent = S.readOnly ? "You're viewing only. Ask whoever shared Park Pack to invite you so you can add your dog."
     : "Saved on this phone only. Other owners will see you once Park Pack is connected to its shared pack.";
-  const t = today(), mine = S.my.pings.filter(p => p.date >= t).sort((a,b) => a.date.localeCompare(b.date) || a.start - b.start);
+  const t = today(), mine = S.my.pings.filter(p => !isPast(p)).sort((a,b) => a.date.localeCompare(b.date) || a.start - b.start);
   $("#myPings").innerHTML = mine.length ? mine.map(p => `<div class="row"><div class="grow"><b>${esc(PARK[p.park]?.name || p.park)}</b>
       <div class="small muted num">${dayLabel(p.date)} · ${range(p.start, p.end)}</div>${statusTag(p)}${p.note ? `<div class="note">${esc(p.note)}</div>` : ""}</div>
       ${myPingButtons(p)}</div>`).join("")
@@ -1604,7 +1625,7 @@ function showAsk(kind){
   const iosNoPush = !("Notification" in window);
   $("#askIn").innerHTML = kind === "loc"
     ? `<div class="big">📍</div><h2 id="askTitle">Turn on location?</h2>
-       <p>Park Pack will spot which park you're at, so you can check ${esc(name)} in with one tap and show as <b>there now</b>. It checks you out when you leave.</p>
+       <p>Park Pack will spot which park you're at, and check ${esc(name)} in automatically, so friends see you as <b>there now</b>. It checks you out when you leave.</p>
        <p class="small">Your exact location never leaves your phone. Only the park you check in to is shared.</p>
        <button class="btn" data-ask-yes>Turn on location</button><button class="linkbtn" data-ask-no>Not now</button>`
     : `<div class="big">🔔</div><h2 id="askTitle">Get friend alerts?</h2>
