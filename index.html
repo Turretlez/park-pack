@@ -603,6 +603,7 @@ const uidGen = () => Math.random().toString(36).slice(2, 10);
 const emptyAvail = () => Array.from({length:7}, () => "0".repeat(NS));
 const blankDoc = () => ({dog:null, ownerName:"", favParks:[], avail:emptyAvail(), pings:[], friends:[]});
 const safePhoto = v => typeof v === "string" && v.length < 60000 && /^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/.test(v) ? v : "";
+const safeFull = v => typeof v === "string" && v.length < 200000 && /^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/.test(v) ? v : "";
 
 function av(dog, cls=""){
   const c = COAT[dog?.doc?.dog?.coat] || COATS[0];
@@ -1557,20 +1558,29 @@ function toJpeg(img, max, square, limit){
     if (url.length <= limit || size < 120) return url;
   }
 }
-async function loadMyPics(){
-  if (!photosColl) return;
-  try { const snap = await photosColl.doc(S.uid).get(); const pics = snap.exists ? snap.data().pics : [];
-    S.pics = (Array.isArray(pics) ? pics : []).filter(x => safePhoto(x?.f) && safePhoto(x?.a)); S.picCache[S.uid] = S.pics.map(x => x.f); renderAll();
-  } catch (e){ console.warn(e); }
+/* the gallery is only ever written after it has been read, so a save can never wipe photos it didn't know about */
+let picsLoading = null;
+function loadMyPics(){
+  if (!photosColl) return Promise.resolve(false);
+  if (S.picsLoaded) return Promise.resolve(true);
+  if (picsLoading) return picsLoading;
+  picsLoading = photosColl.doc(S.uid).get().then(snap => {
+    const pics = snap.exists ? snap.data().pics : [];
+    S.pics = (Array.isArray(pics) ? pics : []).filter(x => safeFull(x?.f) && safePhoto(x?.a));
+    S.picCache[S.uid] = S.pics.map(x => x.f); S.picsLoaded = true; renderAll(); return true;
+  }).catch(e => { console.warn(e); return false; }).finally(() => { picsLoading = null; });
+  return picsLoading;
 }
 let picChain = Promise.resolve();
 function savePics(){
+  if (!S.picsLoaded){ toast("Still loading your photos. Try again in a moment."); loadMyPics(); return; }
   S.picCache[S.uid] = S.pics.map(x => x.f);
   S.my.photo = S.pics[0]?.a || ""; S.my.photoCount = S.pics.length;
   if (!S.my.photo){ delete S.my.photo; }
   picChain = picChain.then(() => photosColl.doc(S.uid).set({pics:S.pics, updatedAt:new Date().toISOString()}))
     .then(() => queueSave(0))
-    .catch(e => { console.warn(e); toast("Couldn't save that photo. Try a smaller one."); });
+    .then(() => toast(`${S.pics.length} ${S.pics.length === 1 ? "photo" : "photos"} saved.`))
+    .catch(e => { console.warn(e); toast("Couldn't save your photos. Check your connection and try again."); S.picsLoaded = false; loadMyPics(); });
   renderAll();
 }
 function renderPics(){
@@ -1588,13 +1598,19 @@ $("#picsField").addEventListener("click", e => {
   const im = e.target.closest("img[data-i]"); if (im) openPhotos(S.uid, +im.dataset.i);
 });
 $("#picIn").addEventListener("change", async e => {
-  const files = [...e.target.files].slice(0, 6 - S.pics.length); e.target.value = "";
-  if (!files.length) return;
-  toast(files.length > 1 ? "Adding photos…" : "Adding photo…");
+  const picked = [...e.target.files]; e.target.value = "";
+  if (!picked.length) return;
+  if (!(await loadMyPics())){ toast("Couldn't load your saved photos, so nothing was changed. Try again."); return; }
+  const room = 6 - S.pics.length, files = picked.slice(0, room);
+  if (!files.length){ toast("You already have 6 photos. Remove one to add another."); return; }
+  toast(files.length > 1 ? `Adding ${files.length} photos…` : "Adding photo…");
+  let bad = 0;
   for (const file of files){
-    try { const img = await decodeImg(file); S.pics.push({f:toJpeg(img, 1000, false, 115000), a:toJpeg(img, 200, true, 30000)}); }
-    catch (err){ console.warn(err); toast("That file didn't open as a photo."); }
+    try { const img = await decodeImg(file); S.pics.push({f:toJpeg(img, 1000, false, 115000), a:toJpeg(img, 200, true, 30000)}); img.close?.(); renderPics(); }
+    catch (err){ console.warn(err); bad++; }
   }
+  if (bad) toast(`${bad} ${bad === 1 ? "file" : "files"} didn't open as a photo.`);
+  if (picked.length > room) setTimeout(() => toast(`Only 6 photos fit, so ${picked.length - room} ${picked.length - room === 1 ? "wasn't" : "weren't"} added.`), 1500);
   savePics();
 });
 async function openPhotos(uid, start = 0){
@@ -1604,7 +1620,7 @@ async function openPhotos(uid, start = 0){
   pv.innerHTML = `<div class="hd"><b>${esc(name)}</b><button data-pvclose>Close</button></div><div class="strip" id="pvStrip"><div><span class="small" style="color:#fff">Loading…</span></div></div><div class="ct" id="pvCt"></div>`;
   pv.hidden = false; document.body.style.overflow = "hidden";
   let pics = S.picCache[uid];
-  if (!pics && photosColl){ try { const snap = await photosColl.doc(uid).get(); pics = (snap.exists ? snap.data().pics || [] : []).map(x => safePhoto(x?.f)).filter(Boolean); S.picCache[uid] = pics; } catch (e){ console.warn(e); pics = []; } }
+  if (!pics && photosColl){ try { const snap = await photosColl.doc(uid).get(); pics = (snap.exists ? snap.data().pics || [] : []).map(x => safeFull(x?.f)).filter(Boolean); S.picCache[uid] = pics; } catch (e){ console.warn(e); pics = []; } }
   pics = pics || [];
   if (pv.hidden) return;
   $("#pvStrip").innerHTML = pics.length ? pics.map((u, i) => `<div><img src="${u}" alt="${esc(name)}, photo ${i + 1}"></div>`).join("") : `<div><span style="color:#fff">No photos yet.</span></div>`;
