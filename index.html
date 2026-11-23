@@ -227,6 +227,10 @@ textarea.input{resize:vertical;min-height:84px;font:inherit}
 .go small{display:block;font-weight:600;font-size:12.5px;opacity:.75;margin-top:2px}
 .mesum{display:flex;gap:12px;align-items:center}
 .roster{display:flex;flex-direction:column}
+.steps2{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;font-size:14px}
+.steps2 b{font-weight:700}
+.linkbox{display:flex;gap:8px;align-items:center}
+.linkbox code{flex:1;min-width:0;font-size:11px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .roster .rr{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-top:1px solid var(--line)}
 .roster .rr:first-child{border-top:0}
 .roster .ck{flex:none;width:22px;height:22px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font-size:13px;font-weight:800;margin-top:1px}
@@ -488,6 +492,7 @@ a.linkbtn{text-decoration:none}
     </form>
     <div class="panel" id="friendsCard"></div>
     <div class="panel" id="rosterCard" hidden></div>
+    <div class="panel" id="autoCard" hidden></div>
     <div class="panel">
       <div class="panel-head"><h3>Your upcoming pings</h3></div>
       <div class="rows" id="myPings"></div>
@@ -1368,6 +1373,7 @@ function renderMe(){
   renderInstall();
   renderFriendsCard();
   renderRoster();
+  renderAuto();
   renderPics();
   renderLook();
 }
@@ -1679,13 +1685,13 @@ function rosterMatch(r){
 }
 async function loadRoster(){
   if (S.mode !== "firebase") return;
-  try { const snap = await firebase.firestore().collection("private").doc(S.uid).get(); S.roster = snap.exists ? (snap.data().roster || []) : []; }
+  try { const snap = await firebase.firestore().collection("private").doc(S.uid).get(); S.roster = snap.exists ? (snap.data().roster || []) : []; S.checkinKey = snap.exists ? (snap.data().checkinKey || "") : ""; }
   catch (e){ console.warn(e); S.roster = []; }
-  if (S.tab === "me") renderRoster();
+  if (S.tab === "me"){ renderRoster(); renderAuto(); }
 }
 async function saveRoster(list){
   S.roster = list;
-  try { await firebase.firestore().collection("private").doc(S.uid).set({roster:list, updatedAt:new Date().toISOString()}); toast(`Saved ${list.length} ${list.length === 1 ? "dog" : "dogs"} to your pack list.`); }
+  try { await firebase.firestore().collection("private").doc(S.uid).set({roster:list, updatedAt:new Date().toISOString()}, {merge:true}); toast(`Saved ${list.length} ${list.length === 1 ? "dog" : "dogs"} to your pack list.`); }
   catch (e){ console.warn(e); toast("Couldn't save your pack list. Try again."); }
   renderRoster();
 }
@@ -1729,6 +1735,56 @@ $("#rosterCard").addEventListener("click", async e => {
     else { try { await navigator.clipboard.writeText(`${text} ${url}`); toast("Invite link copied."); } catch { toast(url); } }
   }
 });
+
+/* ---------- iPhone auto check-in: Shortcuts automations call the Park Pack backend (Apps Script) ---------- */
+const CHECKIN_URL = "https://script.google.com/macros/s/AKfycbyZjVts8IWEc2IiEbKBlQQ8tCKX7FbrSUAsjXURQYtJJSisWIFSRy3uGwLv4Vbkv2Jk/exec";
+const PARK_SEARCH = {rowes:"Rowes Wharf, Boston", longwharf:"Long Wharf, Boston", columbus:"Christopher Columbus Park, Boston", ruff:"RUFF North End, Boston",
+  langone:"Langone Park, Boston", prado:"Paul Revere Mall, Boston", northmeadow:"North End Parks, Boston", cityhall:"City Hall Plaza, Boston",
+  pos:"Post Office Square, Boston", dewey:"Dewey Square, Boston", fortpoint:"Fort Point Channel, Boston", common:"Boston Common"};
+S.checkinKey = null; S.autoPark = null;
+const randKey = () => { const a = new Uint8Array(24); crypto.getRandomValues(a); const c = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"; return [...a].map(x => c[x % c.length]).join(""); };
+const autoLink = (a, park) => `${CHECKIN_URL}?a=${a}${park ? `&park=${park}` : ""}&u=${encodeURIComponent(S.uid)}&k=${S.checkinKey}`;
+function renderAuto(){
+  const el = $("#autoCard");
+  el.hidden = S.mode !== "firebase" || S.readOnly || S.checkinKey == null || !S.my.dog?.name;
+  if (el.hidden) return;
+  const park = S.autoPark || S.my.favParks[0] || "rowes";
+  if (!S.checkinKey){
+    el.innerHTML = `<div class="panel-head"><h3>Auto check-in on iPhone</h3><span class="small muted">Works with the app closed</span></div>
+      <p class="small muted">iPhone won't let web apps watch your location in the background. The Shortcuts app can: when you arrive at a park it checks ${esc(S.my.dog.name)} in and tells your friends, and when you leave it checks you out. Takes about 5 minutes to set up once.</p>
+      <button class="btn" data-auto-make>Set up auto check-in</button>`;
+    return;
+  }
+  el.innerHTML = `<div class="panel-head"><h3>Auto check-in on iPhone</h3><span class="small muted">Your private links</span></div>
+    <div class="field"><span class="label">Park</span><select class="input" id="autoPark">${PARKS.map(p => `<option value="${p.id}" ${p.id === park ? "selected" : ""}>${esc(p.name)}</option>`).join("")}</select></div>
+    <div class="field"><span class="label">Arrive link</span><div class="linkbox"><code>${esc(autoLink("arrive", park))}</code><button class="btn sm" data-copy="arrive">Copy</button></div></div>
+    <div class="field"><span class="label">Leave link</span><div class="linkbox"><code>${esc(autoLink("leave"))}</code><button class="btn sm" data-copy="leave">Copy</button></div></div>
+    <ol class="steps2">
+      <li>Open the <b>Shortcuts</b> app → <b>Automation</b> tab → <b>+</b> → <b>Arrive</b>.</li>
+      <li>Tap <b>Location</b>, search <b>${esc(PARK_SEARCH[park] || "the park")}</b>, pick it, tap <b>Done</b>. Choose <b>Run Immediately</b>, then <b>Next</b>.</li>
+      <li>Tap <b>New Blank Automation</b> → <b>Add Action</b> → search <b>Get Contents of URL</b> and tap it.</li>
+      <li>Tap the blue <b>URL</b>, paste the <b>Arrive link</b>, tap <b>Done</b>.</li>
+      <li>Make one more the same way, but choose <b>Leave</b> and paste the <b>Leave link</b>.</li>
+    </ol>
+    <p class="small muted">Repeat steps 1–4 for any other park you go to (pick it above to get its link). The links only work for ${esc(S.my.dog.name)}. Don't share them.</p>
+    <button class="linkbtn" data-auto-reset style="align-self:flex-start">Make new links (turns off the old ones)</button>`;
+}
+async function saveCheckinKey(){
+  const key = randKey();
+  try { await firebase.firestore().collection("private").doc(S.uid).set({checkinKey:key, updatedAt:new Date().toISOString()}, {merge:true}); S.checkinKey = key; renderAuto(); }
+  catch (e){ console.warn(e); toast("Couldn't set up auto check-in. Try again."); }
+}
+$("#autoCard").addEventListener("click", async e => {
+  if (e.target.closest("[data-auto-make]")){ await saveCheckinKey(); return; }
+  if (e.target.closest("[data-auto-reset]")){ if (confirm("Make new links? Your current Shortcuts automations will stop working until you paste the new links.")) await saveCheckinKey(); return; }
+  const c = e.target.closest("[data-copy]");
+  if (c){
+    const url = c.dataset.copy === "arrive" ? autoLink("arrive", S.autoPark || S.my.favParks[0] || "rowes") : autoLink("leave");
+    try { await navigator.clipboard.writeText(url); toast(`${c.dataset.copy === "arrive" ? "Arrive" : "Leave"} link copied.`); }
+    catch { prompt("Copy this link:", url); }
+  }
+});
+$("#autoCard").addEventListener("change", e => { if (e.target.id === "autoPark"){ S.autoPark = e.target.value; renderAuto(); } });
 
 /* ---------- one-time pop-ups: location, then friend alerts ---------- */
 let askOpen = null;

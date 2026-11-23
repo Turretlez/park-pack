@@ -24,8 +24,9 @@ service cloud.firestore {
     match /private/{uid} {
       allow read, delete: if request.auth != null && request.auth.uid == uid;
       allow create, update: if request.auth != null && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['roster', 'updatedAt'])
-        && request.resource.data.roster is list && request.resource.data.roster.size() <= 150;
+        && request.resource.data.keys().hasOnly(['roster', 'updatedAt', 'checkinKey'])
+        && (!('roster' in request.resource.data) || (request.resource.data.roster is list && request.resource.data.roster.size() <= 150))
+        && (!('checkinKey' in request.resource.data) || (request.resource.data.checkinKey is string && request.resource.data.checkinKey.size() <= 64));
     }
     // Pup photo galleries, loaded only when someone opens them. Up to 6 per dog.
     match /photos/{uid} {
