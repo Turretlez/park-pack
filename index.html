@@ -1861,8 +1861,8 @@ function applyLook(){
     root.dataset.theme = th.dark ? "dark" : "light";
     for (const [k, v] of Object.entries(th.v)) root.style.setProperty(k, v);
   } else if (look.theme === "auto") delete root.dataset.theme; else root.dataset.theme = look.theme;
-  const pc = th.dark ? th.v["--ink"] : th.v["--park"];
-  document.body.style.backgroundImage = th.paws === "snow" ? snowSvg(pc) : th.paws === "stars" ? starSvg(th.v["--ball"]) : th.paws ? pawSvg(th.v["--park"]) : "";
+  const v = th.v || {}, pc = th.dark ? v["--ink"] : v["--park"];
+  document.body.style.backgroundImage = !th.v ? "" : th.paws === "snow" ? snowSvg(pc) : th.paws === "stars" ? starSvg(v["--ball"]) : th.paws ? pawSvg(v["--park"]) : "";
   const meta = document.querySelector('meta[name="theme-color"]'); if (meta) meta.content = getComputedStyle(root).getPropertyValue("--bg").trim() || "#EEF2EC";
 }
 darkMQ.addEventListener?.("change", applyLook);
