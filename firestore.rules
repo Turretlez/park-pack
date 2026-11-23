@@ -20,6 +20,13 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['token', 'updatedAt'])
         && request.resource.data.token is string && request.resource.data.token.size() < 4096;
     }
+    // Each owner's private pack list (neighbors' dogs + notes). Only that owner can read or write it.
+    match /private/{uid} {
+      allow read, delete: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['roster', 'updatedAt'])
+        && request.resource.data.roster is list && request.resource.data.roster.size() <= 150;
+    }
     // Pup photo galleries, loaded only when someone opens them. Up to 6 per dog.
     match /photos/{uid} {
       allow read: if request.auth != null;

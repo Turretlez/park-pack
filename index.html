@@ -226,6 +226,15 @@ textarea.input{resize:vertical;min-height:84px;font:inherit}
 .go{width:100%;padding:15px 16px;font-size:16px;border-radius:14px}
 .go small{display:block;font-weight:600;font-size:12.5px;opacity:.75;margin-top:2px}
 .mesum{display:flex;gap:12px;align-items:center}
+.roster{display:flex;flex-direction:column}
+.roster .rr{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-top:1px solid var(--line)}
+.roster .rr:first-child{border-top:0}
+.roster .ck{flex:none;width:22px;height:22px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font-size:13px;font-weight:800;margin-top:1px}
+.roster .rr.on .ck{background:var(--here);border-color:var(--here);color:var(--on-here)}
+.roster .who{font-size:12.5px;color:var(--muted)}
+.meter{height:8px;border-radius:4px;background:var(--park-soft);overflow:hidden}
+.meter span{display:block;height:100%;background:var(--here)}
+textarea.paste{min-height:140px;font-size:13px}
 .askwrap{position:fixed;inset:0;z-index:62;background:rgba(10,18,13,.5);display:grid;place-items:center;padding:24px}
 .askcard{background:var(--surface);border-radius:22px;padding:22px 20px 18px;max-width:340px;width:100%;display:flex;flex-direction:column;gap:12px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.3);animation:pop .25s cubic-bezier(.2,1.4,.5,1)}
 .askcard .big{font-size:44px;line-height:1}
@@ -478,6 +487,7 @@ a.linkbtn{text-decoration:none}
       <p class="small muted" id="formNote" hidden></p>
     </form>
     <div class="panel" id="friendsCard"></div>
+    <div class="panel" id="rosterCard" hidden></div>
     <div class="panel">
       <div class="panel-head"><h3>Your upcoming pings</h3></div>
       <div class="rows" id="myPings"></div>
@@ -714,6 +724,7 @@ async function connect(){
       coll.onSnapshot(snap => onDocs(snap.docs.map(d => ({id:d.id, data:d.data()}))),
                       () => setStatus("Can't reach the pack right now", false));
       loadMyPics();
+      loadRoster();
       if (alertsOn()) registerPush(false);
       return;
     } catch (e) { console.warn("Firebase unavailable, using this device only", e); }
@@ -1352,6 +1363,7 @@ function renderMe(){
     : `<div class="empty">No pings yet. Tap <b>Ping a park</b> when you're heading out.</div>`;
   renderInstall();
   renderFriendsCard();
+  renderRoster();
   renderPics();
   renderLook();
 }
@@ -1632,6 +1644,87 @@ async function openPhotos(uid, start = 0){
 function closePhotos(){ $("#pv").hidden = true; $("#pv").innerHTML = ""; document.body.style.overflow = ""; }
 $("#pv").addEventListener("click", e => { if (e.target.closest("[data-pvclose]") || e.target.classList.contains("strip") || e.target.parentElement?.classList.contains("strip")) closePhotos(); });
 addEventListener("keydown", e => { if (e.key === "Escape" && !$("#pv").hidden) closePhotos(); });
+
+/* ---------- private pack list: only this owner can read it (private/{uid}) ---------- */
+S.roster = null; S.rosterEdit = false; S.rosterOpen = false;
+const normName = t => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+function parseRoster(text){
+  const out = [];
+  for (let raw of String(text || "").split(/\r?\n/)){
+    raw = raw.trim();
+    if (!raw || /^dogs?:?$/i.test(raw)) continue;
+    let left = raw, note = "";
+    const pi = raw.search(/🐶|🐕|🐾/u);
+    if (pi >= 0){ left = raw.slice(0, pi).trim(); note = raw.slice(pi).replace(/^(🐶|🐕|🐾)\s*/u, "").trim(); }
+    let owner = "", dogsTxt = left;
+    const di = left.search(/\s-\s?|\s?-\s|\s–\s?/);
+    if (di >= 0){ owner = left.slice(0, di).trim(); dogsTxt = left.slice(di).replace(/^\s*[-–]\s*/, "").trim(); }
+    else { const w = left.split(/\s+/); dogsTxt = w.pop() || ""; owner = w.join(" "); }
+    if (/^\?+$/.test(owner)) owner = "";
+    for (const part of dogsTxt.split(/,\s*|\s+and\s+|\s*&\s*/i)){
+      const m = part.trim().match(/^([^()]+?)\s*(?:\(([^)]+)\))?$/);
+      if (!m || !m[1].trim()) continue;
+      out.push({dog:m[1].trim().slice(0, 40), alias:(m[2] || "").trim().slice(0, 40), owner:owner.slice(0, 60), note:note.slice(0, 140)});
+    }
+  }
+  return out.slice(0, 150);
+}
+function rosterMatch(r){
+  const keys = [normName(r.dog), normName(r.alias)].filter(Boolean);
+  return realDogs().find(d => keys.includes(normName(d.doc.dog.name))) || (keys.includes(normName(S.my.dog?.name)) ? {mine:true} : null);
+}
+async function loadRoster(){
+  if (S.mode !== "firebase") return;
+  try { const snap = await firebase.firestore().collection("private").doc(S.uid).get(); S.roster = snap.exists ? (snap.data().roster || []) : []; }
+  catch (e){ console.warn(e); S.roster = []; }
+  if (S.tab === "me") renderRoster();
+}
+async function saveRoster(list){
+  S.roster = list;
+  try { await firebase.firestore().collection("private").doc(S.uid).set({roster:list, updatedAt:new Date().toISOString()}); toast(`Saved ${list.length} ${list.length === 1 ? "dog" : "dogs"} to your pack list.`); }
+  catch (e){ console.warn(e); toast("Couldn't save your pack list. Try again."); }
+  renderRoster();
+}
+function renderRoster(){
+  const el = $("#rosterCard");
+  el.hidden = S.mode !== "firebase" || S.readOnly || S.roster == null;
+  if (el.hidden) return;
+  const list = S.roster || [];
+  if (S.rosterEdit || !list.length){
+    el.innerHTML = `<div class="panel-head"><h3>Your pack list</h3><span class="small muted">Only you can see this</span></div>
+      <p class="small muted">Paste your list of neighborhood dogs, one per line, like <b>Meg - Frankie 🐶 Dachshund</b>. Park Pack ticks each dog off when they join.</p>
+      <textarea class="input paste" id="rosterText" placeholder="Meg - Frankie 🐶 Dachshund&#10;Brynn - Beignet (Benny) 🐶 golden retriever">${esc(list.map(r => `${r.owner || "??"} - ${r.dog}${r.alias ? ` (${r.alias})` : ""}${r.note ? ` 🐶 ${r.note}` : ""}`).join("\n"))}</textarea>
+      <div class="two">${list.length ? `<button class="btn ghost" data-roster-cancel>Cancel</button>` : ""}<button class="btn" data-roster-save>Save list</button></div>`;
+    return;
+  }
+  const rows = list.map(r => ({r, m:rosterMatch(r)})).sort((a, b) => (!!b.m - !!a.m) || a.r.dog.localeCompare(b.r.dog));
+  const on = rows.filter(x => x.m).length;
+  const shown = S.rosterOpen ? rows : rows.slice(0, 8);
+  el.innerHTML = `<div class="panel-head"><h3>Your pack list</h3><span class="small muted">Only you can see this</span></div>
+    <div><div style="display:flex;justify-content:space-between;font-size:14px"><b>${on} of ${rows.length} dogs on Park Pack</b><span class="muted small">${rows.length - on} to invite</span></div>
+      <div class="meter" style="margin-top:6px"><span style="width:${rows.length ? on / rows.length * 100 : 0}%"></span></div></div>
+    <div class="roster">${shown.map(({r, m}) => `<div class="rr ${m ? "on" : ""}"><span class="ck">${m ? "✓" : ""}</span><div class="grow">
+        <b>${esc(r.dog)}</b>${r.alias ? ` <span class="muted small">(${esc(r.alias)})</span>` : ""}${r.owner ? ` <span class="who">· ${esc(r.owner)}</span>` : ""}
+        ${r.note ? `<div class="who">${esc(r.note)}</div>` : ""}</div>
+        ${m ? `<span class="small" style="color:var(--here);font-weight:700">${m.mine ? "You" : "Joined"}</span>` : ""}</div>`).join("")}</div>
+    ${rows.length > 8 ? `<button class="linkbtn" data-roster-more style="align-self:flex-start">${S.rosterOpen ? "Show less" : `Show all ${rows.length}`}</button>` : ""}
+    <div class="two"><button class="btn ghost" data-roster-edit>Edit list</button><button class="btn" data-roster-invite>Share invite link</button></div>`;
+}
+$("#rosterCard").addEventListener("click", async e => {
+  if (e.target.closest("[data-roster-save]")){
+    const list = parseRoster($("#rosterText").value);
+    if (!list.length){ toast("Couldn't find any dogs in that. Use one line per dog, like: Meg - Frankie 🐶 Dachshund"); return; }
+    S.rosterEdit = false; await saveRoster(list); return;
+  }
+  if (e.target.closest("[data-roster-cancel]")){ S.rosterEdit = false; renderRoster(); return; }
+  if (e.target.closest("[data-roster-edit]")){ S.rosterEdit = true; renderRoster(); return; }
+  if (e.target.closest("[data-roster-more]")){ S.rosterOpen = !S.rosterOpen; renderRoster(); return; }
+  if (e.target.closest("[data-roster-invite]")){
+    const url = new URL("./?join", location.href).href, text = "Join our downtown dog pack on Park Pack 🐾";
+    if (navigator.share){ try { await navigator.share({title:"Park Pack", text, url}); } catch {} }
+    else { try { await navigator.clipboard.writeText(`${text} ${url}`); toast("Invite link copied."); } catch { toast(url); } }
+  }
+});
 
 /* ---------- one-time pop-ups: location, then friend alerts ---------- */
 let askOpen = null;
