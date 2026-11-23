@@ -1822,19 +1822,36 @@ $("#ask").addEventListener("click", async e => {
 
 /* ---------- LOOK (this phone only): themes, appearance, start tab, celebrations ---------- */
 const VARS = ["--bg","--surface","--ink","--muted","--line","--park","--on-park","--park-soft","--water","--land","--street","--street-major","--street-case","--bldg","--grass","--ball","--on-ball"];
-const T = (n, dark, paws, v) => ({n, dark, paws, v:Object.fromEntries(VARS.map((k, i) => [k, v[i]]))});
+const T = (n, dark, paws, v, g = "fun") => ({n, dark, paws, g, v:Object.fromEntries(VARS.map((k, i) => [k, v[i]]))});
 const THEMES = {
-  classic: {n:"Good Boy Green"},
+  classic: {n:"Good Boy Green", g:"fun"},
   sunset:   T("Sunset Zoomies", false, true, ["#FFF1E6","#FFFFFF","#3A1F14","#8A6352","#F3D3BF","#E2552E","#FFFFFF","#FFD9C7","#9FD3E6","#FFF6EE","#FFFFFF","#FFFFFF","#F0C9AE","#F8E1D2","#CDEBB5","#FFC93C","#3A1F14"]),
   bubblegum:T("Belly Rub Pink", false, true, ["#FFEAF4","#FFFFFF","#3B1030","#8E5579","#F6C8DF","#E0338C","#FFFFFF","#FFD1E7","#BFE3FF","#FFF3F9","#FFFFFF","#FFFFFF","#F2C3DA","#FBDDEB","#C9F0D3","#7DE2D1","#10332D"]),
   ocean:    T("Splash Pad", false, true, ["#E4F6F7","#FFFFFF","#0E2E33","#4F7479","#BFE3E6","#0E8C96","#FFFFFF","#C6EEF0","#7FC8E8","#F1FBFB","#FFFFFF","#FFFFFF","#B9DADD","#DCEFF0","#BDE8C4","#FFD84D","#2A2200"]),
   pumpkin:  T("Pupkin Spice", false, true, ["#FBEBD7","#FFF9F1","#3B2414","#85634A","#EBCFAE","#C8561C","#FFFFFF","#F7D6B5","#A9CBD6","#FDF3E6","#FFF9F1","#FFF9F1","#E4C39E","#F2DCC0","#D8D59A","#F2A541","#3B2414"]),
   lemonade: T("Tennis Ball", false, true, ["#FFF9D6","#FFFFFF","#2E2A0B","#77703A","#F0E39A","#2E8B57","#FFFFFF","#E3F3C9","#A8DCF0","#FFFBE8","#FFFFFF","#FFFFFF","#EADB94","#F7EDB8","#CDEFA8","#FF7AA2","#330013"]),
   neon:     T("Midnight Howl", true, true, ["#120B26","#1E1440","#F2ECFF","#A99BD1","#33265E","#39F5A8","#0B1A14","#213D45","#0D1E3D","#170F33","#2E2257","#3E2F72","#0B0720","#241A4A","#1A3A3A","#FF4FD8","#22001C"]),
+  // clean, professional
+  navy:     T("Navy & Brass", false, false, ["#F3F4F7","#FFFFFF","#14213D","#5B6478","#DADFE8","#1F3A68","#FFFFFF","#DCE4F2","#BFD3E6","#F7F8FA","#FFFFFF","#FFFFFF","#D3D9E3","#E6E9EF","#D9E6D3","#C9A227","#1A1405"], "clean"),
+  fog:      T("Morning Fog", false, false, ["#F2F4F6","#FFFFFF","#1B2430","#66707C","#DDE2E8","#2D6CDF","#FFFFFF","#DFE9FB","#C9DCEF","#F7F9FB","#FFFFFF","#FFFFFF","#D5DBE3","#E7EBF0","#D6E8DA","#F2C14E","#241A00"], "clean"),
+  sage:     T("Sage & Clay", false, false, ["#F4F3EE","#FFFFFF","#23291F","#6A6F62","#DEDCD2","#5B7553","#FFFFFF","#E1E8DC","#C5D7D9","#F8F7F3","#FFFFFF","#FFFFFF","#D9D6CB","#ECEAE2","#D5E2CC","#C46A47","#FFFFFF"], "clean"),
+  ivory:    T("Ivory & Ink", false, false, ["#FAF8F3","#FFFFFF","#111111","#6B6B6B","#E5E1D8","#111111","#FAF8F3","#ECE8DF","#D4DEE3","#FCFBF8","#FFFFFF","#FFFFFF","#E0DCD2","#EFECE5","#DDE6D5","#E4572E","#FFFFFF"], "clean"),
+  charcoal: T("Charcoal", true, false, ["#121417","#1B1E23","#E8EAED","#9AA0A8","#2C3036","#7AA2F7","#0E1116","#1F2A40","#0F1B2A","#16191D","#262A30","#31363E","#0B0D10","#1F2227","#1C2A22","#E0B04B","#1A1405"], "clean"),
+  espresso: T("Espresso", true, false, ["#1A1411","#241C18","#F2E8DF","#B3A398","#3A2E28","#D8A06A","#1A1411","#3A2A1F","#1A2228","#1F1814","#2E2520","#3A2F28","#120D0B","#2A211C","#23291D","#E8C07D","#1A1411"], "clean"),
+  // holidays
+  xmas:     T("Merry & Bright", false, "snow", ["#F7F1E8","#FFFDF9","#2A1A14","#7A6358","#E8DCCB","#1F5A3A","#FFFFFF","#DDEBDD","#BFD4DE","#FBF7F0","#FFFDF9","#FFFDF9","#E2D3BF","#F0E6D8","#D3E3CF","#C8102E","#FFFFFF"], "holiday"),
+  xmasnight:T("Silent Night", true, "snow", ["#0E1A14","#15241C","#F3EEE6","#A9B5AC","#26392E","#E0475B","#FFFFFF","#3A1F25","#0E1E2A","#122019","#1E2F25","#28392E","#08100C","#1A2A21","#193324","#E9C46A","#1A1405"], "holiday"),
+  hanukkah: T("Festival of Lights", false, "stars", ["#EEF3FB","#FFFFFF","#0F1E3D","#5A6785","#D3DDF0","#1E4FA8","#FFFFFF","#DCE6F8","#BCD3EE","#F5F8FD","#FFFFFF","#FFFFFF","#CCD7EA","#E3EAF6","#D7E5DE","#D9B44A","#1A1405"], "holiday"),
+  eightnights:T("Eight Nights", true, "stars", ["#0B1530","#111D40","#EEF2FF","#A3AED0","#24346A","#8FB4FF","#0B1530","#1E2F60","#0A1838","#0E1936","#1A2856","#233366","#070F24","#15224A","#142A3A","#E8C35A","#1A1405"], "holiday"),
 };
 const look = {theme:"auto", palette:"classic", start:"map", party:true, ...ls.get("pp.look", {})};
 if (!THEMES[look.palette]) look.palette = "classic";
 const darkMQ = matchMedia("(prefers-color-scheme: dark)");
+const bgSvg = inner => `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'>${inner}</svg>`)}")`;
+const flake = (x, y, r, c) => `<g transform='translate(${x} ${y})' stroke='${c}' stroke-width='1.6' stroke-linecap='round' opacity='.11'>${[0,60,120].map(a => `<g transform='rotate(${a})'><path d='M0 ${-r}V${r}M-3 ${-r+4}L0 ${-r+7}L3 ${-r+4}M-3 ${r-4}L0 ${r-7}L3 ${r-4}'/></g>`).join("")}</g>`;
+const snowSvg = c => bgSvg(flake(26, 30, 11, c) + flake(88, 84, 8, c) + `<circle cx='80' cy='24' r='2' fill='${c}' opacity='.12'/><circle cx='30' cy='92' r='2.5' fill='${c}' opacity='.12'/>`);
+const star6 = (x, y, r, c) => `<g transform='translate(${x} ${y})' fill='none' stroke='${c}' stroke-width='1.8' stroke-linejoin='round' opacity='.16'><path d='M0 ${-r}L${r*.866} ${r/2}H${-r*.866}Z'/><path d='M0 ${r}L${r*.866} ${-r/2}H${-r*.866}Z'/></g>`;
+const starSvg = c => bgSvg(star6(28, 30, 11, c) + star6(90, 86, 8, c) + `<circle cx='84' cy='26' r='2' fill='${c}' opacity='.18'/><circle cx='26' cy='94' r='2' fill='${c}' opacity='.18'/>`);
 const pawSvg = c => `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><g fill='${c}' opacity='.07'><g transform='translate(22 26) rotate(-18)'><ellipse cx='0' cy='6' rx='7' ry='6'/><circle cx='-7' cy='-3' r='2.6'/><circle cx='-2.5' cy='-7' r='2.6'/><circle cx='2.5' cy='-7' r='2.6'/><circle cx='7' cy='-3' r='2.6'/></g><g transform='translate(84 82) rotate(22)'><ellipse cx='0' cy='6' rx='7' ry='6'/><circle cx='-7' cy='-3' r='2.6'/><circle cx='-2.5' cy='-7' r='2.6'/><circle cx='2.5' cy='-7' r='2.6'/><circle cx='7' cy='-3' r='2.6'/></g></g></svg>`)}")`;
 function applyLook(){
   const root = document.documentElement, th = THEMES[look.palette];
@@ -1844,7 +1861,8 @@ function applyLook(){
     root.dataset.theme = th.dark ? "dark" : "light";
     for (const [k, v] of Object.entries(th.v)) root.style.setProperty(k, v);
   } else if (look.theme === "auto") delete root.dataset.theme; else root.dataset.theme = look.theme;
-  document.body.style.backgroundImage = th.paws ? pawSvg(th.v["--park"]) : "";
+  const pc = th.dark ? th.v["--ink"] : th.v["--park"];
+  document.body.style.backgroundImage = th.paws === "snow" ? snowSvg(pc) : th.paws === "stars" ? starSvg(th.v["--ball"]) : th.paws ? pawSvg(th.v["--park"]) : "";
   const meta = document.querySelector('meta[name="theme-color"]'); if (meta) meta.content = getComputedStyle(root).getPropertyValue("--bg").trim() || "#EEF2EC";
 }
 darkMQ.addEventListener?.("change", applyLook);
@@ -1854,7 +1872,7 @@ function renderLook(){
     return `<button class="themecard ${look.palette === k ? "on" : ""}" data-look="palette" data-v="${k}" style="--tb:${v["--bg"]};--ts:${v["--surface"]};--tp:${v["--park"]};--tk:${v["--ball"]};--ti:${v["--ink"]}">
       <span class="tprev"><i></i><i></i><i></i></span><span class="tn">${th.n}</span></button>`; };
   $("#lookCard").innerHTML = `<div class="panel-head"><h3>Look &amp; feel</h3><span class="small muted">Just on this phone</span></div>
-    <div class="field"><span class="label">Theme</span><div class="themes">${Object.entries(THEMES).map(([k, th]) => card(k, th)).join("")}</div></div>
+    ${[["fun","Fun"],["clean","Clean"],["holiday","Holiday"]].map(([g, label]) => `<div class="field"><span class="label">${label}</span><div class="themes">${Object.entries(THEMES).filter(([, th]) => (th.g || "fun") === g).map(([k, th]) => card(k, th)).join("")}</div></div>`).join("")}
     ${THEMES[look.palette].v ? "" : `<div class="field"><span class="label">Light or dark</span><div class="chips">${chip("theme","auto","Match phone")}${chip("theme","light","Light")}${chip("theme","dark","Dark")}</div></div>`}
     <div class="field"><span class="label">Open to</span><div class="chips">${chip("start","map","Map")}${chip("start","events","Events")}${chip("start","pack","Pack")}${chip("start","me","My dog")}</div></div>
     <div class="row" style="padding:0"><div class="grow"><b>Location</b><div class="small muted">${ls.get("pp.loc", false) ? "On. Finds your park automatically. Never shared." : "Off. Turn on to find the park you're at."}</div></div><button class="btn sm ${ls.get("pp.loc", false) ? "" : "ghost"}" data-locset>${ls.get("pp.loc", false) ? "On" : "Off"}</button></div>
