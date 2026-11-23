@@ -3,13 +3,17 @@
 A When2Meet-style app for downtown Boston dog owners.
 
 - **Map**: a pocket map of downtown parks (Common, Public Garden, Esplanade, Post Office Sq, City Hall, Greenway, Columbus Park, Fort Point, Peters Park dog run). Pins show how many dogs pinged each park for a day; a time slider narrows it to who's there at, say, 5 PM. Dashed rings mark "regulars": dogs whose usual week and favorite parks line up.
-- **Ping a park**: pick a park, day, and time window ("Leaving now, 1 hr" is one tap).
+- **Ping a park**: one screen. Pick a park (nearby, usual and busy parks first), then Now / Later today / Another day and a length. One place at a time: a new ping replaces any overlapping one.
+- **Status colors**: amber = planning to go, green = there now (only when location confirms you're at the park). Finished pings disappear.
 - **Find a time**: paint your usual free time on a weekly grid. The "Everyone" view stacks the pack's weeks into a heatmap, and "Best times" suggests windows plus a park.
-- **Events**: dog-friendly events around Boston this week and coming up (dog bar nights, adoption days, markets that allow dogs), plus dog-friendly spots for any day. Edit `DOG_EVENTS` in `index.html` each week; past events drop off on their own.
-- **Friends**: tap Add friend on a dog in the Pack tab, or share your friend link (`?friend=<uid>`). Friends get a yellow ring, a "Friends out today" list on the map, and a Friends-only map filter. People who added you show up under "Added you as a friend".
-- **Friend alerts**: turn on in My dog. A notification when a friend adds a new ping, and nobody else. Without a push server these arrive while the app is open or was opened recently.
-- **Location**: the locate button on the map shows a blue dot, the nearest park and a one-tap Check in. Coordinates never leave the phone; only the park you check in to is shared.
-- **Pack**: every dog's card (size, how they do with other dogs, notes, next ping).
+- **Events**: dog-friendly events around Boston this week and coming up. Edit `DOG_EVENTS` in `index.html` every couple of weeks; past events drop off on their own.
+- **Friends**: tap Add friend on a dog in the Pack tab, or share your friend link (`?friend=<uid>`). Friends get a yellow ring, a "Friends out today" list on the map, and a Friends-only map filter.
+- **Friend alerts**: one-time pop-up, or My dog → Friends. Lock-screen pushes when a friend pings a park or arrives at one, sent within about a minute by the Apps Script backend (see below).
+- **Location**: one-time opt-in, then on whenever the app is open. After ~2 minutes at a park you're checked in automatically; walking away checks you out.
+- **Auto check-in on iPhone**: My dog → Auto check-in. Private Arrive/Leave links for iPhone Shortcuts automations, so check-in works with the app closed.
+- **Pack**: every dog's card with photos (up to 6), bio, size, how they do with other dogs, and next ping.
+- **Your pack list**: paste your list of neighborhood dogs (`Owner - Dog 🐶 note`). Only you can see it; dogs tick off as they join.
+- **Look & feel**: 17 themes (Fun, Clean, Holiday incl. Christmas and Hanukkah), light/dark, start tab, paw confetti.
 
 ## Files
 
@@ -18,7 +22,9 @@ A When2Meet-style app for downtown Boston dog owners.
 | `index.html` | The whole app (HTML/CSS/JS, no build step) |
 | `manifest.webmanifest`, `sw.js`, `icons/` | What makes it installable on iPhone and Android, and lets it open offline |
 | `firebase-config.js` | Shared-pack backend config: Firebase project `park-pack-a7868`, free Spark plan (null = each phone keeps its own data) |
-| `firestore.rules` | Firestore security rules: everyone reads, each phone writes only its own dog |
+| `firestore.rules` | Firestore security rules: everyone reads the pack, each phone writes only its own dog; `push/`, `private/` are owner-only. Publish in the Firebase console after editing. |
+| `tools/appsscript/` | The Apps Script backend ("Park Pack backend" in the owner's Google account): `sendAlerts()` every minute + the Shortcuts check-in link (`doGet`). Edit there, then Deploy → Manage deployments → new version. |
+| `tools/push/`, `.github/workflows/push.yml` | Old GitHub Actions alert sender. Disabled (GitHub only ran it a few times a day); kept for manual runs. |
 | `tools/make_icons.py` | Redraws the paw icons |
 | `tools/make_qr_card.py` | Makes `park-pack-qr.png`, the QR card to share (opens the install screen via `?join`) |
 | `tools/build_artifact.py` | Builds `dist/artifact.html`, the shared claude.ai preview |
