@@ -28,6 +28,13 @@ service cloud.firestore {
         && (!('roster' in request.resource.data) || (request.resource.data.roster is list && request.resource.data.roster.size() <= 150))
         && (!('checkinKey' in request.resource.data) || (request.resource.data.checkinKey is string && request.resource.data.checkinKey.size() <= 64));
     }
+    // Photos Bryce adds for dogs on his private pack list. Only the list's owner can see them.
+    match /private/{uid}/rosterPics/{pid} {
+      allow read, delete: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['pic', 'updatedAt'])
+        && request.resource.data.pic is string && request.resource.data.pic.size() < 200000;
+    }
     // Pup photo galleries, loaded only when someone opens them. Up to 6 per dog.
     match /photos/{uid} {
       allow read: if request.auth != null;

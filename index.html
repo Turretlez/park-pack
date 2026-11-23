@@ -233,6 +233,9 @@ textarea.input{resize:vertical;min-height:84px;font:inherit}
 .linkbox code{flex:1;min-width:0;font-size:11px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .roster .rr{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-top:1px solid var(--line)}
 .roster .rr:first-child{border-top:0}
+.rav{position:relative;width:40px;height:40px;font-size:16px;cursor:pointer}
+.rav .cam{position:absolute;right:-3px;bottom:-3px;width:17px;height:17px;border-radius:50%;background:var(--park);color:var(--on-park);font:800 13px/17px var(--f-body);font-style:normal;text-align:center;box-shadow:0 0 0 2px var(--surface)}
+.roster .rr{align-items:center}
 .roster .ck{flex:none;width:22px;height:22px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font-size:13px;font-weight:800;margin-top:1px}
 .roster .rr.on .ck{background:var(--here);border-color:var(--here);color:var(--on-here)}
 .roster .who{font-size:12.5px;color:var(--muted)}
@@ -826,12 +829,12 @@ function presenceCheck(){
   for (const p of S.my.pings){
     if (!isLive(p) || !PARK_LL[p.park]) continue;
     const m = distM(geo.pos, PARK_LL[p.park]);
-    if (p.here && m > 300 && (geo.acc || 0) < 200){
+    if (p.here && m > fence().out && (geo.acc || 0) < Math.max(fence().acc, 60)){
       const now = nowMin();
       if (now - p.start >= 5){ p.end = now; delete p.here; } else S.my.pings = S.my.pings.filter(x => x !== p);
       toast(`Looks like you left ${PARK[p.park].short}, so you're checked out.`); changed = true; break;
     }
-    if (!p.here && m <= 150){ p.here = true; toast(`You made it to ${PARK[p.park].short}! Showing you as there now.`); changed = true; confetti(12); }
+    if (!p.here && m <= fence().in && (geo.acc || 0) < fence().acc){ p.here = true; toast(`You made it to ${PARK[p.park].short}! Showing you as there now.`); changed = true; confetti(12); }
   }
   if (!changed) changed = autoHere();
   if (changed){ queueSave(0); renderAll(); }
@@ -839,8 +842,8 @@ function presenceCheck(){
 /* automatic check-in: stay at a park ~2 minutes and you show as there now; it keeps extending while you stay */
 function autoHere(){
   const near = nearestPark(), now = nowMin(), last = START + NS*STEP;
-  const at = near && near.m <= 150 && (geo.acc || 0) < 150 ? near.pk.id : null;
-  if (geo.noAuto && at !== geo.noAuto) geo.noAuto = null;            // left the park you checked out of
+  const at = near && near.m <= fence().in && (geo.acc || 0) < fence().acc ? near.pk.id : null;
+  if (geo.noAuto && at !== geo.noAuto && !(near && near.pk.id === geo.noAuto && near.m <= fence().out)) geo.noAuto = null;            // left the park you checked out of
   if (!at || now < START || now >= last - 5){ geo.dwell = null; return false; }
   if (!geo.dwell || geo.dwell.park !== at) geo.dwell = {park:at, t:Date.now()};
   const cur = S.my.pings.find(p => isLive(p) && p.park === at);
@@ -1001,6 +1004,12 @@ function renderFriendsOut(){
 
 /* ---------- LOCATION (stays on this phone; only the park you check in to is shared) ---------- */
 const geo = {watch:null, pos:null, acc:null, err:null, want:false};
+/* how close counts as "at the park" (in) and how far counts as "left" (out), in meters.
+   Owners who live right next to a park get a tight fence so home doesn't count as the park. */
+const TIGHT_FENCE = {
+  "qdC65PaNpSXX9bYQBpEFHn2TZiP2": {in:60, out:110, acc:50},   // Wrigley (Molly), lives by the Greenway
+};
+const fence = () => TIGHT_FENCE[S.uid] || {in:150, out:300, acc:150};
 function distM([a, b], [c, d]){
   const r = Math.PI / 180, x = (d - b) * r * Math.cos((a + c) / 2 * r), y = (c - a) * r;
   return Math.sqrt(x * x + y * y) * 6371000;
@@ -1043,7 +1052,7 @@ function renderLoc(){
   const x = (lon - W) / (E - W) * VW, y = (N - lat) / (N - So) * VH;
   const onMap = x >= 0 && x <= VW && y >= 0 && y <= VH;
   g.innerHTML = onMap ? `<circle class="meacc" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${Math.min(90, Math.max(8, geo.acc / M_PER_UNIT)).toFixed(1)}"/><circle class="medot" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="6"/>` : "";
-  const near = nearestPark(), at = near && near.m <= 150;
+  const near = nearestPark(), at = near && near.m <= fence().in;
   const mine = at && S.my.pings.find(p => p.park === near.pk.id && p.date === today() && covers(p, nowMin()));
   bar.hidden = false;
   if (!onMap && !at){
@@ -1064,7 +1073,7 @@ function checkIn(park){
   const start = Math.max(START, Math.floor(nowMin() / 30) * 30), end = Math.min(start + 60, START + NS * STEP);
   if (end <= start || nowMin() >= START + NS * STEP){ toast("Check-ins close at 10 PM."); return; }
   const near = nearestPark();
-  const here = !!(near && near.pk.id === park && near.m <= 150);
+  const here = !!(near && near.pk.id === park && near.m <= fence().in);
   const gone = addMyPing({id:uidGen(), date:today(), park, start, end, ...(here ? {here:true} : {})});
   queueSave(0);
   S.day = today(); S.park = park; S.time = null;
@@ -1552,7 +1561,7 @@ function savePing(){
   const {date, start, end} = pingTimes();
   if (end <= start){ toast("Pings run until 10 PM. Pick an earlier time."); return; }
   const near = nearestPark();
-  const here = st.when === "now" && !!(near && near.pk.id === st.park && near.m <= 150);
+  const here = st.when === "now" && !!(near && near.pk.id === st.park && near.m <= fence().in);
   const gone = addMyPing({id:uidGen(), date, park:st.park, start, end, ...(here ? {here:true} : {}), ...(st.note ? {note:st.note} : {})});
   queueSave(0);
   closeSheet();
@@ -1656,7 +1665,9 @@ $("#pv").addEventListener("click", e => { if (e.target.closest("[data-pvclose]")
 addEventListener("keydown", e => { if (e.key === "Escape" && !$("#pv").hidden) closePhotos(); });
 
 /* ---------- private pack list: only this owner can read it (private/{uid}) ---------- */
-S.roster = null; S.rosterEdit = false; S.rosterOpen = false;
+S.roster = null; S.rosterEdit = false; S.rosterOpen = false; S.rosterPics = {}; S.rosterPicFor = null;
+const rosterPicsColl = () => firebase.firestore().collection("private").doc(S.uid).collection("rosterPics");
+const rosterId = () => Math.random().toString(36).slice(2, 10);
 const normName = t => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
 function parseRoster(text){
   const out = [];
@@ -1685,7 +1696,10 @@ function rosterMatch(r){
 }
 async function loadRoster(){
   if (S.mode !== "firebase") return;
-  try { const snap = await firebase.firestore().collection("private").doc(S.uid).get(); S.roster = snap.exists ? (snap.data().roster || []) : []; S.checkinKey = snap.exists ? (snap.data().checkinKey || "") : ""; }
+  try { const snap = await firebase.firestore().collection("private").doc(S.uid).get(); S.roster = snap.exists ? (snap.data().roster || []) : []; S.checkinKey = snap.exists ? (snap.data().checkinKey || "") : "";
+    let added = false; S.roster.forEach(r => { if (!r.id){ r.id = rosterId(); added = true; } });
+    if (added) firebase.firestore().collection("private").doc(S.uid).set({roster:S.roster, updatedAt:new Date().toISOString()}, {merge:true}).catch(e => console.warn(e));
+    try { const ps = await rosterPicsColl().get(); ps.forEach(d => { const u = safeFull(d.data().pic); if (u) S.rosterPics[d.id] = u; }); } catch (e){ console.warn(e); } }
   catch (e){ console.warn(e); S.roster = []; }
   if (S.tab === "me"){ renderRoster(); renderAuto(); }
 }
@@ -1694,6 +1708,21 @@ async function saveRoster(list){
   try { await firebase.firestore().collection("private").doc(S.uid).set({roster:list, updatedAt:new Date().toISOString()}, {merge:true}); toast(`Saved ${list.length} ${list.length === 1 ? "dog" : "dogs"} to your pack list.`); }
   catch (e){ console.warn(e); toast("Couldn't save your pack list. Try again."); }
   renderRoster();
+}
+function rosterAv(r, m){
+  const joined = m && !m.mine ? m : null;
+  const own = joined && safePhoto(joined.doc.photo);
+  const mine = S.rosterPics[r.id];
+  const ph = own || mine;
+  const ini = esc((r.dog || "?").charAt(0).toUpperCase());
+  return `<button class="av rav ${ph ? "ph" : ""}" data-rpic="${esc(r.id)}" aria-label="${ph ? "See" : "Add"} a photo of ${esc(r.dog)}" style="--c:var(--park-soft);--t:var(--ink)${ph ? `;background-image:url('${ph}')` : ""}">${ph ? "" : `<span>${ini}</span><i class="cam">+</i>`}</button>`;
+}
+function openRosterPic(r){
+  const pv = $("#pv"), ph = S.rosterPics[r.id];
+  pv.innerHTML = `<div class="hd"><b>${esc(r.dog)}</b><button data-pvclose>Close</button></div>
+    <div class="strip"><div><img src="${ph}" alt="${esc(r.dog)}"></div></div>
+    <div style="display:flex;gap:10px;justify-content:center;padding:12px 16px 0"><button class="btn" data-rpic-change="${esc(r.id)}">Change photo</button><button class="btn ghost" style="color:#fff;border-color:rgba(255,255,255,.4)" data-rpic-remove="${esc(r.id)}">Remove</button></div>`;
+  pv.hidden = false; document.body.style.overflow = "hidden";
 }
 function renderRoster(){
   const el = $("#rosterCard");
@@ -1713,22 +1742,29 @@ function renderRoster(){
   el.innerHTML = `<div class="panel-head"><h3>Your pack list</h3><span class="small muted">Only you can see this</span></div>
     <div><div style="display:flex;justify-content:space-between;font-size:14px"><b>${on} of ${rows.length} dogs on Park Pack</b><span class="muted small">${rows.length - on} to invite</span></div>
       <div class="meter" style="margin-top:6px"><span style="width:${rows.length ? on / rows.length * 100 : 0}%"></span></div></div>
-    <div class="roster">${shown.map(({r, m}) => `<div class="rr ${m ? "on" : ""}"><span class="ck">${m ? "✓" : ""}</span><div class="grow">
+    <div class="roster">${shown.map(({r, m}) => `<div class="rr ${m ? "on" : ""}">${rosterAv(r, m)}<div class="grow">
         <b>${esc(r.dog)}</b>${r.alias ? ` <span class="muted small">(${esc(r.alias)})</span>` : ""}${r.owner ? ` <span class="who">· ${esc(r.owner)}</span>` : ""}
         ${r.note ? `<div class="who">${esc(r.note)}</div>` : ""}</div>
-        ${m ? `<span class="small" style="color:var(--here);font-weight:700">${m.mine ? "You" : "Joined"}</span>` : ""}</div>`).join("")}</div>
+        ${m ? `<span class="small" style="color:var(--here);font-weight:700">✓ ${m.mine ? "You" : "Joined"}</span>` : ""}</div>`).join("")}</div>
+    <p class="small muted">Tap a circle to add a photo, so you can put a face to the name. Photos stay on your list, private to you.</p>
+    <input type="file" id="rosterPicIn" accept="image/*" hidden>
     ${rows.length > 8 ? `<button class="linkbtn" data-roster-more style="align-self:flex-start">${S.rosterOpen ? "Show less" : `Show all ${rows.length}`}</button>` : ""}
     <div class="two"><button class="btn ghost" data-roster-edit>Edit list</button><button class="btn" data-roster-invite>Share invite link</button></div>`;
 }
 $("#rosterCard").addEventListener("click", async e => {
   if (e.target.closest("[data-roster-save]")){
     const list = parseRoster($("#rosterText").value);
+    const old = S.roster || [];
+    list.forEach(r => { const k = normName(r.dog) + "|" + normName(r.owner); const o = old.find(x => normName(x.dog) + "|" + normName(x.owner) === k) || old.find(x => normName(x.dog) === normName(r.dog)); r.id = o?.id || rosterId(); });
     if (!list.length){ toast("Couldn't find any dogs in that. Use one line per dog, like: Meg - Frankie 🐶 Dachshund"); return; }
     S.rosterEdit = false; await saveRoster(list); return;
   }
   if (e.target.closest("[data-roster-cancel]")){ S.rosterEdit = false; renderRoster(); return; }
   if (e.target.closest("[data-roster-edit]")){ S.rosterEdit = true; renderRoster(); return; }
   if (e.target.closest("[data-roster-more]")){ S.rosterOpen = !S.rosterOpen; renderRoster(); return; }
+  const rp = e.target.closest("[data-rpic]");
+  if (rp){ const r = (S.roster || []).find(x => x.id === rp.dataset.rpic); if (!r) return;
+    if (S.rosterPics[r.id]) openRosterPic(r); else { S.rosterPicFor = r.id; $("#rosterPicIn").click(); } return; }
   if (e.target.closest("[data-roster-invite]")){
     const url = new URL("./?join", location.href).href, text = "Join our downtown dog pack on Park Pack 🐾";
     if (navigator.share){ try { await navigator.share({title:"Park Pack", text, url}); } catch {} }
@@ -1774,6 +1810,22 @@ async function saveCheckinKey(){
   try { await firebase.firestore().collection("private").doc(S.uid).set({checkinKey:key, updatedAt:new Date().toISOString()}, {merge:true}); S.checkinKey = key; renderAuto(); }
   catch (e){ console.warn(e); toast("Couldn't set up auto check-in. Try again."); }
 }
+$("#rosterCard").addEventListener("change", async e => {
+  if (e.target.id !== "rosterPicIn") return;
+  const file = e.target.files[0], id = S.rosterPicFor; e.target.value = "";
+  if (!file || !id) return;
+  try {
+    const img = await decodeImg(file); const pic = toJpeg(img, 600, false, 90000); img.close?.();
+    await rosterPicsColl().doc(id).set({pic, updatedAt:new Date().toISOString()});
+    S.rosterPics[id] = pic; toast("Photo added."); renderRoster();
+  } catch (err){ console.warn(err); toast("Couldn't save that photo. Try again."); }
+});
+$("#pv").addEventListener("click", async e => {
+  const ch = e.target.closest("[data-rpic-change]"); if (ch){ closePhotos(); S.rosterPicFor = ch.dataset.rpicChange; $("#rosterPicIn")?.click(); return; }
+  const rm = e.target.closest("[data-rpic-remove]");
+  if (rm){ try { await rosterPicsColl().doc(rm.dataset.rpicRemove).delete(); delete S.rosterPics[rm.dataset.rpicRemove]; toast("Photo removed."); } catch { toast("Couldn't remove it. Try again."); }
+    closePhotos(); renderRoster(); }
+});
 $("#autoCard").addEventListener("click", async e => {
   if (e.target.closest("[data-auto-make]")){ await saveCheckinKey(); return; }
   if (e.target.closest("[data-auto-reset]")){ if (confirm("Make new links? Your current Shortcuts automations will stop working until you paste the new links.")) await saveCheckinKey(); return; }
