@@ -1651,7 +1651,7 @@ async function openPhotos(uid, start = 0){
   pv.innerHTML = `<div class="hd"><b>${esc(name)}</b><button data-pvclose>Close</button></div><div class="strip" id="pvStrip"><div><span class="small" style="color:#fff">Loading…</span></div></div><div class="ct" id="pvCt"></div>`;
   pv.hidden = false; document.body.style.overflow = "hidden";
   let pics = S.picCache[uid];
-  if (!pics && photosColl){ try { const snap = await photosColl.doc(uid).get(); pics = (snap.exists ? snap.data().pics || [] : []).map(x => safeFull(x?.f)).filter(Boolean); S.picCache[uid] = pics; } catch (e){ console.warn(e); pics = []; } }
+  if (!pics && photosColl){ try { const snap = await photosColl.doc(uid).get(); pics = (snap.exists ? snap.data().pics || [] : []).map(x => safeFull(x?.f)).filter(Boolean); if (pics.length) S.picCache[uid] = pics; } catch (e){ console.warn(e); pics = []; } }
   pics = pics || [];
   if (pv.hidden) return;
   $("#pvStrip").innerHTML = pics.length ? pics.map((u, i) => `<div><img src="${u}" alt="${esc(name)}, photo ${i + 1}"></div>`).join("") : `<div><span style="color:#fff">No photos yet.</span></div>`;
